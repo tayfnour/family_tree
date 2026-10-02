@@ -33,7 +33,8 @@ function checkLayout(roots) {
     assert.equal(report.crossings, 0, 'branches never cross');
     assert.equal(report.overlaps, 0, 'names never overlap');
     assert.equal(report.leafOverlaps, 0, 'leaves never overlap');
-    for (const n of layout.nodes) if (n.kind === 'leaf' || n.kind === 'parent') assert.ok(n.leaf, 'every name sits on a leaf');
+    for (const n of layout.nodes) if (n.kind === 'leaf') assert.ok(n.leaf, 'every child without children sits on a leaf');
+    for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(!n.leaf, 'fathers sit on circles at their forks');
     return layout;
 }
 
@@ -104,10 +105,10 @@ test('layout is deterministic and never edits the records', () => {
     assert.equal(JSON.stringify(roots), copy);
     assert.deepEqual(a.nodes.map(n => [n.x, n.y]), b.nodes.map(n => [n.x, n.y]));
 });
-test('fathers hang their leaf on a stem and leaves grow along branches', () => {
+test('fathers sit on their forks and leaves grow along branches', () => {
     const layout = checkLayout(normalize(family(400, 13)));
-    const fathers = layout.nodes.filter(n => n.kind === 'parent');
-    assert.ok(fathers.filter(n => n.leaf.stem).length >= fathers.length * 0.95);
+    const forks = new Set(layout.edges.map(e => e.from));
+    for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(forks.has(n), 'every father is a fork');
     assert.ok(layout.foliage.length > layout.nodes.length, 'many decorative leaves');
     for (const f of layout.foliage.slice(0, 500)) assert.ok(Math.hypot(f.x - f.bx, f.y - f.by) < 7, 'each leaf has a short stem');
     const tapered = layout.edges.filter(e => !e.axis && e.to.children?.length);
