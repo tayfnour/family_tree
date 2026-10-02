@@ -33,7 +33,7 @@
     }
     function palette() {
         const leaf = config.leafColor || '#228B22', trunk = config.trunkColor || '#884D2A', branch = config.branchColor || '#6B3D1F';
-        return { leafLight: mix(leaf, '#d8f08a', 0.42), leafDark: mix(leaf, '#0f2a08', 0.12), leafTip: mix(leaf, '#f3f7a0', 0.62),
+        return { canopy: mix(leaf, '#e9f7c8', 0.72), canopyShade: mix(leaf, '#cfe9a0', 0.5), leafLight: mix(leaf, '#d8f08a', 0.42), leafDark: mix(leaf, '#0f2a08', 0.12), leafTip: mix(leaf, '#f3f7a0', 0.62),
             trunk: mix(trunk, '#000000', 0.12), trunkLight: mix(trunk, '#e8b47a', 0.18), bark: mix(trunk, '#000000', 0.45), branch: mix(branch, '#000000', 0.08) };
     }
 
@@ -82,17 +82,34 @@
             const c = { x: e.from.x * 0.4 + e.to.x * 0.1, y: Math.min(e.from.y, e.to.y) * 0.2 + e.to.y * 0.3 };
             taper(stems, Array.from({ length: 9 }, (_, i) => { const t = i / 8, u = 1 - t; return { x: u * u * e.from.x + 2 * u * t * c.x + t * t * e.to.x, y: u * u * e.from.y + 2 * u * t * c.y + t * t * e.to.y }; }), e.w0, e.w1);
         }
-        // Name leaves: green for the youngest, gold for fathers, each with
-        // a faint midrib and, for fathers, a stem back to the fork.
+        // Small green leaves carry the youngest; circles on the forks carry
+        // fathers and grandfathers.
         for (const n of l.nodes) {
+            if (n.kind === 'parent') { disc(gold, n.x, n.y, n.r); disc(petioles, n.x, n.y, n.r * 0.78); }
             if (!n.leaf) continue;
             const f = n.leaf, c = Math.cos(f.a), d = Math.sin(f.a), a = A * f.s, w = B * f.s * 2;
             const bx = f.x - c * a, by = f.y - d * a, tx = f.x + c * a, ty = f.y + d * a;
-            (n.kind === 'parent' ? gold : green).push(`M${f1(bx)} ${f1(by)}Q${f1(f.x - d * w)} ${f1(f.y + c * w)} ${f1(tx)} ${f1(ty)}Q${f1(f.x + d * w)} ${f1(f.y - c * w)} ${f1(bx)} ${f1(by)}Z`);
+            green.push(`M${f1(bx)} ${f1(by)}Q${f1(f.x - d * w)} ${f1(f.y + c * w)} ${f1(tx)} ${f1(ty)}Q${f1(f.x + d * w)} ${f1(f.y - c * w)} ${f1(bx)} ${f1(by)}Z`);
             veins.push(`M${f1(bx)} ${f1(by)}L${f1(f.x - c * a * 0.62)} ${f1(f.y - d * a * 0.62)}M${f1(f.x + c * a * 0.62)} ${f1(f.y + d * a * 0.62)}L${f1(tx)} ${f1(ty)}`);
-            if (f.stem) petioles.push(`M${f1(f.stem[0].x)} ${f1(f.stem[0].y)}L${f1(f.stem[1].x)} ${f1(f.stem[1].y)}L${f1(bx)} ${f1(by)}`);
         }
+        // The crown's outline as one flat, evenly scalloped canopy behind the
+        // wood, with a darker copy just below it for a little depth.
+        const o = l.crown.outline, len = [0];
+        for (let i = 1; i <= o.length; i++) len.push(len[i - 1] + Math.hypot(o[i % o.length].x - o[i - 1].x, o[i % o.length].y - o[i - 1].y));
+        const perimeter = len[o.length], bumps = Math.max(24, Math.round(perimeter / (l.crown.W / 9))), period = perimeter / bumps, cy = l.crown.top + l.crown.H * 0.5;
+        const rim = [];
+        for (let k = 0, j = 0; k < bumps * 10; k++) {
+            const s = k * perimeter / (bumps * 10);
+            while (len[j + 1] < s) j++;
+            const p = o[j], q = o[(j + 1) % o.length], t = (s - len[j]) / ((len[j + 1] - len[j]) || 1);
+            const x = p.x + (q.x - p.x) * t, y = p.y + (q.y - p.y) * t, d = Math.hypot(x, y - cy) || 1;
+            const lift = period * 0.32 * Math.pow(Math.abs(Math.sin(Math.PI * s / period)), 0.6);
+            rim.push({ x: x + x / d * lift, y: y + (y - cy) / d * lift });
+        }
+        const canopy = [`M${rim.map(p => `${f1(p.x)} ${f1(p.y)}`).join('L')}Z`];
+        const shade = [`M${rim.map(p => `${f1(p.x * 0.985)} ${f1(p.y + l.crown.H * 0.022)}`).join('L')}Z`];
         return {
+            canopy: toPath(canopy), shade: toPath(shade),
             tiles: [...tiles.values()].map(t => ({ x: t.x, y: t.y, light: toPath(t.light), dark: toPath(t.dark), tip: toPath(t.tip), stems: toPath(t.stems) })),
             branches: toPath(branches), stems: toPath(stems), green: toPath(green), gold: toPath(gold), veins: toPath(veins), petioles: toPath(petioles),
             // Wavy flat clouds and a two-tone hill, all vector.
@@ -140,6 +157,8 @@
         ctx.fillStyle = '#7fb544'; ctx.beginPath(); ctx.moveTo(l.left, ground + 25);
         ctx.quadraticCurveTo(l.left + l.width * 0.5, ground - 22, l.left + l.width, ground + 22); ctx.lineTo(l.left + l.width, l.top + l.height); ctx.lineTo(l.left, l.top + l.height); ctx.fill();
 
+        if (config.naturalFoliage !== false) { ctx.fillStyle = p.canopyShade; ctx.fill(s.shade); ctx.fillStyle = p.canopy; ctx.fill(s.canopy); }
+
         // Trunk: concave sides, flared roots, flat light side and bark lines.
         const top = l.trunk.width / 2, base = top * 1.45;
         const trunk = new Path2D();
@@ -164,11 +183,11 @@
         ctx.fillStyle = p.branch; ctx.fill(s.branches);
         if (config.leavesFirst === false) leaves();
 
-        // Name leaves sit on top of everything else in the crown.
-        ctx.strokeStyle = p.branch; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(s.petioles);
+        // Names sit on top of everything else in the crown.
         ctx.fillStyle = '#dff0b8'; ctx.fill(s.green); ctx.strokeStyle = '#6f9a3a'; ctx.lineWidth = 1.3; ctx.stroke(s.green);
-        ctx.fillStyle = '#f7da7c'; ctx.fill(s.gold); ctx.strokeStyle = '#c49a2c'; ctx.stroke(s.gold);
         ctx.strokeStyle = '#7d9d4a66'; ctx.lineWidth = 0.8; ctx.stroke(s.veins);
+        ctx.fillStyle = '#00000024'; ctx.save(); ctx.translate(0, 2); ctx.fill(s.gold); ctx.restore();
+        ctx.fillStyle = '#e9b949'; ctx.fill(s.gold); ctx.fillStyle = '#fdf3d6'; ctx.fill(s.petioles);
         for (const n of l.nodes) {
             if (n.kind === 'medallion') {
                 ctx.beginPath(); ctx.arc(n.x, n.y + 2.5, n.r + 1, 0, TAU); ctx.fillStyle = '#00000026'; ctx.fill();
@@ -211,7 +230,8 @@
             if (view && (at.x < view.x0 - 80 || at.x > view.x1 + 80 || at.y < view.y0 - 80 || at.y > view.y1 + 80)) continue;
             if (n.kind === 'trunk') text(n, n.rx * 1.55, 20 * Math.min(1.5, g.big), 9, '#4a3216');
             else if (n.kind === 'medallion') text(n, n.r * 1.4, 15 * Math.min(1.5, g.big), 8, '#5a3b05');
-            else if (readable && n.leaf) text(n, SIZE.nameLeaf.a * n.leaf.s * 1.45, 11, 5, n.kind === 'parent' ? '#5a3b05' : '#2f4a1c');
+            else if (readable && n.leaf) text(n, SIZE.nameLeaf.a * n.leaf.s * 1.45, 10, 5, '#2f4a1c');
+            else if (readable && n.kind === 'parent') text(n, n.r * 1.5, 10, 5, '#5a3b05');
         }
     }
     function poster(scale = camera.scale) { scenery(null); names(null, scale); }
@@ -325,7 +345,7 @@
       <form id="natural-edit-form"><label class="natural-field" for="natural-rename">الاسم</label><input class="natural-input" id="natural-rename" required maxlength="120"><div class="natural-row"><button class="natural-secondary" type="submit">حفظ الاسم</button></div></form>
       <h3 class="section-title">أفراد العائلة</h3><p class="natural-muted">اختر اسمًا من القائمة أو من الشجرة لعرضه وإضافة أبنائه.</p>
       <div id="treeViewContainer" class="tree-view-container"></div>
-      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء: ورقة ذهبية</span><span class="leaf">الأبناء: ورقة خضراء</span></div>
+      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء والأجداد: دوائر عند التفرع</span><span class="leaf">الأبناء: أوراق خضراء</span></div>
       <h3 class="section-title">شكل الشجرة</h3>
       <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار الأوراق الخضراء</label>
       <label class="natural-field natural-check"><input type="checkbox" id="natural-leaves-first"> رسم الأوراق أولًا لتبقى الأغصان ظاهرة فوقها</label>
