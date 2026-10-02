@@ -32,6 +32,8 @@ function checkLayout(roots) {
     const report = diagnose(layout);
     assert.equal(report.crossings, 0, 'branches never cross');
     assert.equal(report.overlaps, 0, 'names never overlap');
+    assert.equal(report.leafOverlaps, 0, 'leaves never overlap');
+    for (const n of layout.nodes) if (n.kind === 'leaf' || n.kind === 'parent') assert.ok(n.leaf, 'every name sits on a leaf');
     return layout;
 }
 
@@ -101,6 +103,15 @@ test('layout is deterministic and never edits the records', () => {
     const a = buildLayout(roots), b = buildLayout(roots);
     assert.equal(JSON.stringify(roots), copy);
     assert.deepEqual(a.nodes.map(n => [n.x, n.y]), b.nodes.map(n => [n.x, n.y]));
+});
+test('fathers hang their leaf on a stem and leaves grow along branches', () => {
+    const layout = checkLayout(normalize(family(400, 13)));
+    const fathers = layout.nodes.filter(n => n.kind === 'parent');
+    assert.ok(fathers.filter(n => n.leaf.stem).length >= fathers.length * 0.95);
+    assert.ok(layout.foliage.length > layout.nodes.length, 'many decorative leaves');
+    for (const f of layout.foliage.slice(0, 500)) assert.ok(Math.hypot(f.x - f.bx, f.y - f.by) < 7, 'each leaf has a short stem');
+    const tapered = layout.edges.filter(e => !e.axis && e.to.children?.length);
+    assert.ok(tapered.every(e => e.w1 <= e.w0), 'branches thin towards their tip');
 });
 test('names and leaves stay inside the crown', () => {
     const layout = buildLayout(normalize(family(600, 5)));
