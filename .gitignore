@@ -17,4 +17,6 @@ vendor/
 dist/
 build/
 coverage/
+__pycache__/
+*.pyc
 *.log

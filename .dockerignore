@@ -4,9 +4,13 @@
 .dockerignore
 README.md
 DYNAMIC_TREE.md
+tests
 *.log
 .env
 .env.*
 !.env.example
 node_modules
 vendor
+.venv
+__pycache__
+*.pyc
