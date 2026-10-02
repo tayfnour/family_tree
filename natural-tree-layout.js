@@ -247,7 +247,9 @@
             }
         } else plan = { cap: [], wedges: cut(byAngle([...pts]), limbs) };
         if (!plan) plan = { cap: [], wedges: cut(byAngle([...pts]), order), all: true };
-        byAngle(plan.cap).forEach((s, i) => { Object.assign(twigs[i], { x: s.x, y: s.y }); out.edges.push({ from: apex, to: twigs[i] }); });
+        byAngle(plan.cap).forEach((s, i) => { Object.assign(twigs[i], { x: s.x, y: s.y }); });
+        if (!limbs.length && twigs.length > 1 && sprig(apex, twigs, out)) return;
+        twigs.forEach(c => out.edges.push({ from: apex, to: c }));
         const placed = (plan.all ? order : limbs).map((child, i) => {
             const list = plan.wedges[i];
             const candidates = visibleVertices(apex, hull(list)), middle = list[list.length >> 1].k;
@@ -292,6 +294,22 @@
             grow(fork, list.slice(0, cut)); grow(fork, list.slice(cut));
         };
         grow(apex, kids);
+    }
+    /* When every child is childless and they lie ahead of the father in a
+       narrow band, one twig carries them all, leaf after leaf, like a real
+       sprig. The twig visits them in order along its direction, so it never
+       doubles back, and it stays inside this family's own area. */
+    function sprig(apex, kids, out) {
+        let cx = 0, cy = 0;
+        for (const c of kids) { cx += c.x - apex.x; cy += c.y - apex.y; }
+        const l = Math.hypot(cx, cy) || 1, ux = cx / l, uy = cy / l;
+        const along = c => (c.x - apex.x) * ux + (c.y - apex.y) * uy;
+        const angles = kids.map(c => Math.atan2(c.y - apex.y, c.x - apex.x)), mid = Math.atan2(uy, ux);
+        if (kids.some(c => along(c) <= 0) || angles.some(a => Math.abs(Math.atan2(Math.sin(a - mid), Math.cos(a - mid))) > 0.85)) return false;
+        const order = [...kids].sort((a, b) => along(a) - along(b));
+        let prev = apex;
+        order.forEach((c, i) => { out.edges.push({ from: prev, to: c, chain: true, carries: order.length - i }); prev = c; });
+        return true;
     }
     function alongAxis(node, apex, back, pts, g, out) {
         // Only for long shares: length well beyond width.
@@ -414,13 +432,13 @@
         // gently with the flow, and any bowed twig found crossing is straightened.
         let edges = out.edges;
         const dressEdge = e => {
-            const size = e.axis ? e.carries : e.to.size;
+            const size = e.axis || e.chain ? e.carries : e.to.size;
             e.w0 = branchWidth(size, g);
             // The tip matches the largest branch that carries on from it.
-            const onward = e.axis ? size - 1 : e.to.junction ? Math.max(...out.edges.filter(f => f.from === e.to).map(f => f.axis ? f.carries : f.to.size), 1)
+            const onward = e.axis || e.chain ? size - 1 : e.to.junction ? Math.max(...out.edges.filter(f => f.from === e.to).map(f => f.axis ? f.carries : f.to.size), 1)
                 : e.to.children?.length ? Math.max(...e.to.children.map(c => c.size)) : 0;
             e.w1 = onward ? Math.min(e.w0 * 0.9, branchWidth(onward, g)) : 1.1;
-            e.curl = e.axis ? 0 : 2;
+            e.curl = 2;
             e.fromNode = e.from.axis || (e.from.person ? e.from : null);
         };
         edges.forEach(dressEdge);
@@ -472,7 +490,7 @@
             for (const e of edges) {
                 const l = Math.hypot(e.to.x - e.from.x, e.to.y - e.from.y) || 1, d = { x: (e.to.x - e.from.x) / l, y: (e.to.y - e.from.y) / l };
                 heading.set(e.to, d);
-                const w = e.axis ? e.carries : e.to.size;
+                const w = e.axis || e.chain ? e.carries : e.to.size;
                 if (!heaviest.has(e.from) || heaviest.get(e.from) < w) { heaviest.set(e.from, w); onward.set(e.from, d); }
             }
         };
