@@ -88,7 +88,7 @@ test('5000 people', () => {
 test('the crown grows with the family', () => {
     const small = buildLayout(normalize(family(50, 4))), big = buildLayout(normalize(family(1500, 4)));
     assert.ok(big.geometry.W > small.geometry.W * 1.5);
-    assert.ok(small.foliage.length > 0 && big.foliage.length > small.foliage.length);
+    assert.equal(small.foliage.length, 0, 'no nameless leaves');
 });
 test('adding one person keeps the crown in place', () => {
     const roots = normalize(family(300, 9));
@@ -105,12 +105,12 @@ test('layout is deterministic and never edits the records', () => {
     assert.equal(JSON.stringify(roots), copy);
     assert.deepEqual(a.nodes.map(n => [n.x, n.y]), b.nodes.map(n => [n.x, n.y]));
 });
-test('fathers sit on their forks and leaves grow along branches', () => {
+test('fathers sit on their forks and only named leaves are drawn', () => {
     const layout = checkLayout(normalize(family(400, 13)));
     const forks = new Set(layout.edges.map(e => e.from));
     for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(forks.has(n), 'every father is a fork');
-    assert.ok(layout.foliage.length > layout.nodes.length, 'many decorative leaves');
-    for (const f of layout.foliage.slice(0, 500)) assert.ok(Math.hypot(f.x - f.bx, f.y - f.by) < 7, 'each leaf has a short stem');
+    assert.equal(layout.foliage.length, 0, 'only named leaves');
+    for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(layout.edges.filter(e => e.from === n).length >= Math.min(1, n.children.length), 'branches split at the father');
     const tapered = layout.edges.filter(e => !e.axis && e.to.children?.length);
     assert.ok(tapered.every(e => e.w1 <= e.w0), 'branches thin towards their tip');
 });

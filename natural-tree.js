@@ -382,8 +382,7 @@
       <div id="treeViewContainer" class="tree-view-container"></div>
       <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء والأجداد: دوائر عند التفرع</span><span class="leaf">الأبناء: أوراق خضراء</span></div>
       <h3 class="section-title">شكل الشجرة</h3>
-      <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار الأوراق الخضراء</label>
-      <label class="natural-field natural-check"><input type="checkbox" id="natural-leaves-first"> رسم الأوراق أولًا لتبقى الأغصان ظاهرة فوقها</label>
+      <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار خلفية التاج الخضراء</label>
       <div class="natural-row"><button id="natural-export">حفظ JSON</button><button id="natural-import" class="natural-secondary">استيراد JSON</button></div>
       <input type="file" id="familyJsonFile" accept=".json,application/json" hidden>
       <div class="natural-row"><button id="natural-image" class="natural-secondary">تنزيل صورة الشجرة كاملة</button></div>
@@ -399,7 +398,7 @@
         if (!confirm('سيتم استبدال الأسماء التوضيحية بأصل واحد لبدء شجرتك. هل تريد المتابعة؟')) return;
         familyData = normalize([{ name: 'الجد المؤسس' }]); selected = familyData[0].id; save(); refresh(); choose(selected);
     });
-    for (const [id, key] of [['natural-foliage', 'naturalFoliage'], ['natural-leaves-first', 'leavesFirst']]) {
+    for (const [id, key] of [['natural-foliage', 'naturalFoliage']]) {
         const box = document.getElementById(id);
         box.checked = config[key] !== false;
         box.addEventListener('change', event => { config[key] = event.target.checked; saveConfig(); invalidate(); scheduleDraw(); });
