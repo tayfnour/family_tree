@@ -44,7 +44,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .natural-legend .trunk::before { width: 14px; height: 8px; background: #fbf3dc; border: 2px solid #d4ad5a; }
 .natural-legend .medal::before { background: #f2c65a; border: 2px solid #d39a2c; }
 .natural-legend .rose::before { background: #fdf3d6; box-shadow: 0 0 0 2px #e9b949; }
-.natural-legend .leaf::before { width: 14px; height: 8px; border-radius: 10px 0; background: #dff0b8; border: 1px solid #6f9a3a; }
+.natural-legend .leaf::before { width: 14px; height: 8px; border-radius: 10px 0; background: linear-gradient(160deg, #8fc04f 50%, #4f8a2b 50%); }
 .natural-check { display: flex; gap: 8px; align-items: flex-start; line-height: 1.6; cursor: pointer; }
 .natural-check input { margin-top: 4px; accent-color: var(--forest); }
 @media (max-width: 760px) {

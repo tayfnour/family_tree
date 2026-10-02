@@ -456,7 +456,7 @@
             // child's own main branch goes on, and winds a little on the way.
             const blend = (d, w) => { if (!d) return { x: ux, y: uy }; const x = d.x * w + ux * (1 - w), y = d.y * w + uy * (1 - w), l = Math.hypot(x, y) || 1; return x * ux + y * uy > 0.25 ? { x: x / l, y: y / l } : { x: ux, y: uy }; };
             const hl = Math.hypot(hx || 0, hy || 0), start = hl ? { x: hx / hl, y: hy / hl } : heading.get(a);
-            const s0 = blend(start, 0.6), s1 = blend(onward.get(to), 0.35), k = len * 0.36, wind = Math.min(6, len * 0.045) * side;
+            const s0 = blend(start, 0.72), s1 = blend(onward.get(to), 0.45), k = len * 0.4, wind = Math.min(11, len * 0.075) * side;
             const c1 = { x: a.x + s0.x * k, y: a.y + s0.y * k }, c2 = { x: to.x - s1.x * k, y: to.y - s1.y * k };
             return Array.from({ length: 13 }, (_, i) => {
                 const t = i / 12, v = 1 - t, w = Math.sin(t * Math.PI * 2) * wind * Math.sin(t * Math.PI);
