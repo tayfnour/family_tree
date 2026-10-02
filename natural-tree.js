@@ -61,18 +61,20 @@
     const TILE = 800;
     let scene = null;
     function buildScene(l) {
-        const tiles = new Map(), branches = [], leaves = [], rims = [], roses = [], cores = [];
+        const tiles = new Map(), branches = [], green = [], gold = [], veins = [], petioles = [];
+        const { a: A, b: B } = SIZE.nameLeaf;
         for (const f of l.foliage) {
             const key = `${Math.floor(f.x / TILE)},${Math.floor(f.y / TILE)}`;
-            if (!tiles.has(key)) tiles.set(key, { x: Math.floor(f.x / TILE) * TILE, y: Math.floor(f.y / TILE) * TILE, light: [], dark: [], tip: [] });
+            if (!tiles.has(key)) tiles.set(key, { x: Math.floor(f.x / TILE) * TILE, y: Math.floor(f.y / TILE) * TILE, light: [], dark: [], tip: [], stems: [] });
             const t = tiles.get(key), c = Math.cos(f.a), d = Math.sin(f.a), tx = f1(f.x + c * f.l), ty = f1(f.y + d * f.l), w = f.l * 0.46;
             const mx = f.x + c * f.l * 0.45, my = f.y + d * f.l * 0.45, x = f1(f.x), y = f1(f.y);
             (f.t === 2 ? t.tip : t.light).push(`M${x} ${y}Q${f1(mx - d * w)} ${f1(my + c * w)} ${tx} ${ty}Z`);
             t.dark.push(`M${x} ${y}L${tx} ${ty}Q${f1(mx + d * w)} ${f1(my - c * w)} ${x} ${y}Z`);
+            t.stems.push(`M${f1(f.bx)} ${f1(f.by)}L${x} ${y}`);
         }
         for (const e of l.edges) {
             taper(branches, e.points, e.w0, e.w1);
-            if (e.axis || e.to.children?.length) disc(branches, e.to.x, e.to.y, e.w1 / 2);
+            if (e.axis || e.to.junction || e.to.children?.length) disc(branches, e.to.x, e.to.y, e.w1 / 2);
         }
         // Medallion stems grow out of the trunk top in a soft curve.
         const stems = [];
@@ -80,17 +82,19 @@
             const c = { x: e.from.x * 0.4 + e.to.x * 0.1, y: Math.min(e.from.y, e.to.y) * 0.2 + e.to.y * 0.3 };
             taper(stems, Array.from({ length: 9 }, (_, i) => { const t = i / 8, u = 1 - t; return { x: u * u * e.from.x + 2 * u * t * c.x + t * t * e.to.x, y: u * u * e.from.y + 2 * u * t * c.y + t * t * e.to.y }; }), e.w0, e.w1);
         }
+        // Name leaves: green for the youngest, gold for fathers, each with
+        // a faint midrib and, for fathers, a stem back to the fork.
         for (const n of l.nodes) {
-            if (n.kind === 'leaf') { disc(leaves, n.x, n.y, n.r); disc(rims, n.x, n.y + 1.6, n.r + 0.6); }
-            else if (n.kind === 'parent') {
-                const pts = [];
-                for (let i = 0; i < 48; i++) { const a = i / 48 * TAU, r = n.r * (0.86 + 0.14 * Math.cos(a * 8)); pts.push(`${f1(n.x + Math.cos(a) * r)} ${f1(n.y + Math.sin(a) * r)}`); }
-                roses.push(`M${pts.join('L')}Z`); disc(cores, n.x, n.y, n.r * 0.72);
-            }
+            if (!n.leaf) continue;
+            const f = n.leaf, c = Math.cos(f.a), d = Math.sin(f.a), a = A * f.s, w = B * f.s * 2;
+            const bx = f.x - c * a, by = f.y - d * a, tx = f.x + c * a, ty = f.y + d * a;
+            (n.kind === 'parent' ? gold : green).push(`M${f1(bx)} ${f1(by)}Q${f1(f.x - d * w)} ${f1(f.y + c * w)} ${f1(tx)} ${f1(ty)}Q${f1(f.x + d * w)} ${f1(f.y - c * w)} ${f1(bx)} ${f1(by)}Z`);
+            veins.push(`M${f1(bx)} ${f1(by)}L${f1(f.x - c * a * 0.62)} ${f1(f.y - d * a * 0.62)}M${f1(f.x + c * a * 0.62)} ${f1(f.y + d * a * 0.62)}L${f1(tx)} ${f1(ty)}`);
+            if (f.stem) petioles.push(`M${f1(f.stem[0].x)} ${f1(f.stem[0].y)}L${f1(f.stem[1].x)} ${f1(f.stem[1].y)}L${f1(bx)} ${f1(by)}`);
         }
         return {
-            tiles: [...tiles.values()].map(t => ({ x: t.x, y: t.y, light: toPath(t.light), dark: toPath(t.dark), tip: toPath(t.tip) })),
-            branches: toPath(branches), stems: toPath(stems), leaves: toPath(leaves), rims: toPath(rims), roses: toPath(roses), cores: toPath(cores),
+            tiles: [...tiles.values()].map(t => ({ x: t.x, y: t.y, light: toPath(t.light), dark: toPath(t.dark), tip: toPath(t.tip), stems: toPath(t.stems) })),
+            branches: toPath(branches), stems: toPath(stems), green: toPath(green), gold: toPath(gold), veins: toPath(veins), petioles: toPath(petioles),
             // Wavy flat clouds and a two-tone hill, all vector.
             clouds: Array.from({ length: 5 }, (_, i) => ({ x: l.left + l.width * (0.1 + 0.2 * i + Math.sin(i * 7) * 0.05), y: l.top + l.height * (0.07 + 0.09 * (i % 3)), s: l.width * (0.05 + 0.02 * (i % 2)) }))
         };
@@ -112,9 +116,13 @@
         return n.label;
     }
     function text(n, maxWidth, base, min, color) {
-        const t = fitText(n, maxWidth, base, min);
+        const t = fitText(n, maxWidth, base, min), at = n.leaf || n;
+        ctx.save(); ctx.translate(at.x, at.y);
+        // Text follows the leaf's tilt but always reads left to right.
+        if (n.leaf) ctx.rotate(Math.cos(n.leaf.a) >= 0 ? n.leaf.a : n.leaf.a - Math.PI);
         ctx.font = `bold ${t.size}px Tajawal, Tahoma, sans-serif`; ctx.fillStyle = color;
-        t.lines.forEach((line, i) => ctx.fillText(line, n.x, n.y + 1 + (i - (t.lines.length - 1) / 2) * t.size * 1.05, maxWidth));
+        t.lines.forEach((line, i) => ctx.fillText(line, 0, 1 + (i - (t.lines.length - 1) / 2) * t.size * 1.05, maxWidth));
+        ctx.restore();
     }
 
     // Everything except names and the selection ring; `view` culls foliage.
@@ -148,16 +156,19 @@
         const leaves = () => {
             if (config.naturalFoliage === false) return;
             const shown = s.tiles.filter(t => !view || (t.x < view.x1 + 40 && t.x + TILE > view.x0 - 40 && t.y < view.y1 + 40 && t.y + TILE > view.y0 - 40));
+            ctx.strokeStyle = p.branch; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+            for (const t of shown) ctx.stroke(t.stems);
             for (const [key, color] of [['light', p.leafLight], ['tip', p.leafTip], ['dark', p.leafDark]]) { ctx.fillStyle = color; for (const t of shown) ctx.fill(t[key]); }
         };
         if (config.leavesFirst !== false) leaves();
         ctx.fillStyle = p.branch; ctx.fill(s.branches);
         if (config.leavesFirst === false) leaves();
 
-        // Names: cream circles for the youngest, gold rosettes for parents.
-        ctx.fillStyle = '#00000022'; ctx.fill(s.rims);
-        ctx.fillStyle = '#fbf4de'; ctx.fill(s.leaves); ctx.strokeStyle = '#d6c08e'; ctx.lineWidth = 1.2; ctx.stroke(s.leaves);
-        ctx.fillStyle = '#e8a93a'; ctx.fill(s.roses); ctx.fillStyle = '#fbd98a'; ctx.fill(s.cores);
+        // Name leaves sit on top of everything else in the crown.
+        ctx.strokeStyle = p.branch; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(s.petioles);
+        ctx.fillStyle = '#dff0b8'; ctx.fill(s.green); ctx.strokeStyle = '#6f9a3a'; ctx.lineWidth = 1.3; ctx.stroke(s.green);
+        ctx.fillStyle = '#f7da7c'; ctx.fill(s.gold); ctx.strokeStyle = '#c49a2c'; ctx.stroke(s.gold);
+        ctx.strokeStyle = '#7d9d4a66'; ctx.lineWidth = 0.8; ctx.stroke(s.veins);
         for (const n of l.nodes) {
             if (n.kind === 'medallion') {
                 ctx.beginPath(); ctx.arc(n.x, n.y + 2.5, n.r + 1, 0, TAU); ctx.fillStyle = '#00000026'; ctx.fill();
@@ -188,16 +199,19 @@
         const sel = selected && l.nodes.find(n => n.person.id === selected);
         if (sel) {
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3.5; ctx.beginPath();
-            if (sel.kind === 'trunk') ctx.ellipse(sel.x, sel.y, sel.rx + 4, sel.ry + 4, 0, 0, TAU); else ctx.arc(sel.x, sel.y, sel.r + 4, 0, TAU);
+            if (sel.kind === 'trunk') ctx.ellipse(sel.x, sel.y, sel.rx + 4, sel.ry + 4, 0, 0, TAU);
+            else if (sel.leaf) ctx.ellipse(sel.leaf.x, sel.leaf.y, SIZE.nameLeaf.a * sel.leaf.s + 4, SIZE.nameLeaf.b * sel.leaf.s + 4, sel.leaf.a, 0, TAU);
+            else ctx.arc(sel.x, sel.y, sel.r + 4, 0, TAU);
             ctx.stroke();
         }
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl';
         const readable = scale * SIZE.leaf >= 5.5;
         for (const n of l.nodes) {
-            if (view && (n.x < view.x0 - 80 || n.x > view.x1 + 80 || n.y < view.y0 - 80 || n.y > view.y1 + 80)) continue;
+            const at = n.leaf || n;
+            if (view && (at.x < view.x0 - 80 || at.x > view.x1 + 80 || at.y < view.y0 - 80 || at.y > view.y1 + 80)) continue;
             if (n.kind === 'trunk') text(n, n.rx * 1.55, 20 * Math.min(1.5, g.big), 9, '#4a3216');
             else if (n.kind === 'medallion') text(n, n.r * 1.4, 15 * Math.min(1.5, g.big), 8, '#5a3b05');
-            else if (readable) text(n, n.r * (n.kind === 'parent' ? 1.3 : 1.7), 10, 5, n.kind === 'parent' ? '#5a3b05' : '#4e3a20');
+            else if (readable && n.leaf) text(n, SIZE.nameLeaf.a * n.leaf.s * 1.45, 11, 5, n.kind === 'parent' ? '#5a3b05' : '#2f4a1c');
         }
     }
     function poster(scale = camera.scale) { scenery(null); names(null, scale); }
@@ -311,7 +325,7 @@
       <form id="natural-edit-form"><label class="natural-field" for="natural-rename">الاسم</label><input class="natural-input" id="natural-rename" required maxlength="120"><div class="natural-row"><button class="natural-secondary" type="submit">حفظ الاسم</button></div></form>
       <h3 class="section-title">أفراد العائلة</h3><p class="natural-muted">اختر اسمًا من القائمة أو من الشجرة لعرضه وإضافة أبنائه.</p>
       <div id="treeViewContainer" class="tree-view-container"></div>
-      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء</span><span class="leaf">بلا أبناء بعد</span></div>
+      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء: ورقة ذهبية</span><span class="leaf">الأبناء: ورقة خضراء</span></div>
       <h3 class="section-title">شكل الشجرة</h3>
       <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار الأوراق الخضراء</label>
       <label class="natural-field natural-check"><input type="checkbox" id="natural-leaves-first"> رسم الأوراق أولًا لتبقى الأغصان ظاهرة فوقها</label>
@@ -412,7 +426,8 @@
         if (!pointers.has(event.pointerId)) return;
         if (!wasDragged && layout) {
             const p = position(event), x = (p.x - camera.x) / camera.scale, y = (p.y - camera.y) / camera.scale;
-            const n = layout.nodes.find(n => n.kind === 'trunk' ? ((n.x - x) / n.rx) ** 2 + ((n.y - y) / n.ry) ** 2 <= 1 : Math.hypot(n.x - x, n.y - y) <= n.r + 3);
+            const n = layout.nodes.find(n => n.kind === 'trunk' ? ((n.x - x) / n.rx) ** 2 + ((n.y - y) / n.ry) ** 2 <= 1
+                : n.leaf ? Math.hypot(n.leaf.x - x, n.leaf.y - y) <= SIZE.nameLeaf.a * n.leaf.s : Math.hypot(n.x - x, n.y - y) <= n.r + 3);
             if (n) choose(n.person.id);
         }
         pointers.delete(event.pointerId); gesture = [...pointers.values()];
