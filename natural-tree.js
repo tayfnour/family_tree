@@ -12,17 +12,27 @@
     let dirty = true, title = storage.get('familyTreeTitle') || 'شجرة العائلة';
     let pointers = new Map(), gesture = null, wasDragged = false;
     const panel = document.getElementById('tab-family');
-    const oldGenerator = Array.from(panel.querySelectorAll('.control-group')).slice(0, 5).map(el => el.outerHTML).join('');
     const status = message => { document.getElementById('natural-status').textContent = message; };
 
-    function example() {
-        let id = 0;
-        const names = ['عبدالله', 'محمد', 'أحمد', 'خالد', 'علي', 'يوسف', 'عمر', 'إبراهيم', 'سعد', 'فهد', 'ناصر', 'حسن', 'راشد', 'سلمان', 'عبدالرحمن'];
-        const make = (name, children = []) => ({ id: `example-${++id}`, name, children });
-        // Two ancestors on the trunk, three gold medallions, then a full crown.
-        const branch = (seed, depth) => Array.from({ length: depth > 3 ? (seed % 3 ? 0 : 1 + seed % 2) : 2 + (seed * 7 + depth) % 4 }, (_, k) =>
-            make(names[(seed * 5 + k * 3 + depth) % names.length], depth < 5 ? branch(seed * 3 + k + 1, depth + 1) : []));
-        return normalize([make('الجد المؤسس', [make('عبدالله', Array.from({ length: 3 }, (_, i) => make(names[i + 1], branch(i + 2, 2))))])]);
+    // Sample family: a thousand people, every father with three to eight
+    // sons, filled generation by generation. Repeatable on every load.
+    function example(total = 1000) {
+        const names = ['محمد', 'أحمد', 'علي', 'عمر', 'خالد', 'سعد', 'يوسف', 'حسن', 'حسين', 'فهد', 'ناصر', 'سلمان', 'راشد', 'إبراهيم', 'عبدالله',
+            'عبدالرحمن', 'ماجد', 'سامي', 'طارق', 'بدر', 'منصور', 'سالم', 'فيصل', 'زياد', 'مازن', 'وليد', 'هشام', 'نبيل', 'كريم', 'جمال'];
+        let id = 0, seed = 20261002;
+        const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const make = name => ({ id: `example-${++id}`, name: name || names[Math.floor(rand() * names.length)], children: [] });
+        const root = make('الجد المؤسس'), queue = [root];
+        let count = 1;
+        while (count < total && queue.length) {
+            const father = queue.shift(), left = total - count;
+            let sons = father === root ? 4 : 3 + Math.floor(rand() * 6);
+            if (left <= 8) sons = left;
+            else if (left - sons < 3) sons = left - 3; // leave at least three for the next father
+            for (let i = 0; i < sons; i++) { const son = make(); father.children.push(son); queue.push(son); }
+            count += sons;
+        }
+        return normalize([root]);
     }
 
     // Flat palette derived from the colour tab, so the user's choices still apply.
@@ -377,7 +387,7 @@
       <div class="natural-row"><button id="natural-export">حفظ JSON</button><button id="natural-import" class="natural-secondary">استيراد JSON</button></div>
       <input type="file" id="familyJsonFile" accept=".json,application/json" hidden>
       <div class="natural-row"><button id="natural-image" class="natural-secondary">تنزيل صورة الشجرة كاملة</button></div>
-      <details class="natural-details"><summary>بيانات تجريبية وخيارات الرسم</summary><p class="natural-muted">التوليد يستبدل بيانات الشجرة الحالية ببيانات تجريبية.</p>${oldGenerator}<button id="natural-generate" type="button">توليد بيانات تجريبية</button>
+      <details class="natural-details"><summary>بيانات تجريبية وخيارات الرسم</summary><p class="natural-muted">التوليد يستبدل بيانات الشجرة الحالية بعائلة تجريبية من ١٠٠٠ فرد، لكل أب من ٣ إلى ٨ أبناء.</p><button id="natural-generate" type="button">توليد عائلة تجريبية (١٠٠٠ فرد)</button>
       <div class="natural-row"><button id="natural-legacy" class="natural-secondary">إظهار إعدادات الرسم الحر</button></div><p class="natural-muted">إعدادات الرسم الحر تخص الوضع التجريبي عند إيقاف الرسم من بيانات العائلة.</p>
       <label class="natural-field"><input type="checkbox" id="i-useFamilyData" checked> الرسم من بيانات العائلة</label></details>`;
 
@@ -421,8 +431,7 @@
         } catch (error) { status(`تعذر الاستيراد: ${error.message}`); }
         event.target.value = '';
     });
-    const generate = generateFamilyTree;
-    generateFamilyTree = () => { generate(); familyData = normalize(familyData); selected = familyData[0].id; useFamilyData = true; document.getElementById('i-useFamilyData').checked = true; save(); refresh(); choose(selected); };
+    generateFamilyTree = () => { familyData = example(); selected = familyData[0].id; useFamilyData = true; document.getElementById('i-useFamilyData').checked = true; save(); refresh(); choose(selected); };
     document.getElementById('natural-generate').addEventListener('click', () => {
         if (confirm('سيتم استبدال بيانات العائلة الحالية ببيانات تجريبية. هل تريد المتابعة؟')) generateFamilyTree();
     });
