@@ -1,0 +1,20 @@
+# Local/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and generated output
+node_modules/
+vendor/
+dist/
+build/
+coverage/
+*.log

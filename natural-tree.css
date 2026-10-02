@@ -1,0 +1,51 @@
+:root { --forest: #244a39; --gold: #ab8546; --paper: #fbf8ef; }
+body { background: #e9ece5; color: #293a30; }
+#container { flex-direction: row-reverse; }
+#sidebar { width: 330px; flex-shrink: 0; background: var(--paper); border: 0; border-left: 1px solid #d8d7c8; box-shadow: none; }
+#sidebar > h2 { padding: 22px 16px 8px; font-size: 23px; color: var(--forest); }
+#canvas-container { padding: 24px; min-width: 0; background: radial-gradient(ellipse at center, #f4f5ef, #dfe5dc); }
+canvas { border: 0; border-radius: 2px; box-shadow: 0 12px 45px #253b2520; max-width: 100%; touch-action: none; }
+.tabs { background: #eeeee3; padding: 0 12px; border-color: #dedbcc; }
+.tabs .tab-btn { font-size: 12px; min-width: 50px; color: #677368; }
+.tabs .tab-btn.active { color: var(--forest); border-color: var(--gold); background: transparent; }
+.tabs .tab-btn:not([data-primary]) { display: none; }
+.tabs.advanced .tab-btn { display: block; }
+.tab-content { padding: 18px; }
+.section-title { color: var(--forest); font-size: 15px; border: 0; margin: 18px 0 10px; }
+button { background: var(--forest); font-size: 13px; padding: 10px; margin-top: 0; }
+button:hover { background: #37634d; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #af8846; outline-offset: 3px; }
+.natural-muted { color: #778075; font-size: 12px; line-height: 1.8; }
+.natural-kicker { color: #9c7b46; font-size: 11px; letter-spacing: 2px; text-align: center; margin-bottom: 20px; }
+.natural-field { display: block; font-size: 12px; margin: 13px 0 6px; color: #5d6a5d; }
+.natural-input { width: 100%; padding: 10px; border: 1px solid #dcd9ca; border-radius: 6px; background: #fffdf7; color: #293a30; font: inherit; font-size: 13px; }
+.natural-row { display: flex; gap: 7px; margin-top: 10px; }
+.natural-secondary { background: transparent; color: #415c48; border: 1px solid #d7d9cb; }
+.natural-secondary:hover { background: #e9ecdf; }
+.natural-stats { display: flex; justify-content: space-around; text-align: center; padding: 14px 0; margin: 18px 0; border-block: 1px solid #e1dece; }
+.natural-stats strong { display: block; font-size: 23px; color: var(--forest); }
+.natural-stats span { font-size: 11px; color: #7d8276; }
+#natural-status { min-height: 23px; margin-top: 8px; font-size: 12px; color: #556e3a; }
+.tree-view-container { background: #fffdf8; max-height: 230px; border-color: #e2dece; }
+.natural-person { display: block; text-align: right; width: 100%; margin: 2px 0; padding: 7px 8px; font-size: 12px; background: transparent; color: #475849; border: 1px solid transparent; }
+.natural-person:hover { background: #edf0e4; }
+.natural-person[aria-pressed="true"] { background: #e7eedf; border-color: #afbd9c; }
+.natural-person small { color: #8a907e; margin-right: 6px; }
+.natural-details { margin-top: 20px; border-top: 1px solid #e0dccb; padding-top: 12px; }
+.natural-details summary { cursor: pointer; color: #7b806e; font-size: 12px; }
+.natural-toolbar { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; padding: 6px; background: #fffdf4ed; border: 1px solid #dadbca; border-radius: 30px; box-shadow: 0 4px 20px #23352412; direction: ltr; }
+.natural-toolbar button { width: auto; min-width: 34px; padding: 7px 11px; background: transparent; color: #34513a; border-radius: 20px; white-space: nowrap; }
+.natural-toolbar button:hover { background: #e9ecde; }
+#natural-zoom { min-width: 46px; font-size: 11px; text-align: center; color: #79806f; }
+#zoom-info { display: none; }
+#sidebar > div:last-child { display: none; }
+.natural-legend { display: flex; justify-content: center; gap: 18px; font-size: 11px; color: #7b816e; margin: 12px 0; }
+.natural-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #d0af61; margin-left: 5px; }
+.natural-legend span:last-child::before { background: #719147; border-radius: 8px 0; }
+@media (max-width: 760px) {
+  html, body { height: auto; overflow: auto; }
+  #container { flex-direction: column; height: auto; min-height: 100vh; width: 100%; }
+  #canvas-container { order: -1; height: 66vh; min-height: 390px; flex: none; padding: 12px; }
+  #sidebar { width: 100%; overflow: visible; }
+  .natural-toolbar { bottom: 18px; }
+}

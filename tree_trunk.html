@@ -1,0 +1,2807 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>شجرة العائلة — جذور وامتداد</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            font-family: 'Tajawal', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #FFFFFF;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background: #FFFFFF;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        #sidebar {
+            width: 340px;
+            background: #f8f9fa;
+            border-left: 2px solid #dee2e6;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .tabs {
+            display: flex;
+            background: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px 3px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-family: 'Tajawal', sans-serif;
+            font-weight: bold;
+            color: #555;
+            font-size: 10px;
+            border-bottom: 3px solid transparent;
+            min-width: 70px;
+        }
+
+        .tab-btn:hover {
+            background: #e2e6ea;
+        }
+
+        .tab-btn.active {
+            color: #884D2A;
+            border-bottom-color: #884D2A;
+            background: #fff;
+        }
+
+        .tab-content {
+            padding: 10px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* تنسيق العرض الشجري لشجرة العائلة */
+        .tree-view-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 280px;
+            overflow: auto;
+        }
+
+        .tree-ul {
+            list-style-type: none;
+            padding-right: 20px;
+        }
+
+        .tree-li {
+            margin: 5px 0;
+            position: relative;
+        }
+
+        .tree-li::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            right: -15px;
+            width: 10px;
+            height: 1px;
+            background: #ccc;
+        }
+
+        .tree-li::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -15px;
+            width: 1px;
+            height: 100%;
+            background: #ccc;
+        }
+
+        .tree-li:last-child::after {
+            height: 10px;
+        }
+
+        .tree-content {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .tree-content:hover {
+            background: #f0f0f0;
+        }
+
+        .caret {
+            margin-left: 5px;
+            font-size: 10px;
+            color: #666;
+            transition: transform 0.2s;
+        }
+
+        .caret-down {
+            transform: rotate(90deg);
+        }
+
+        .nested {
+            display: none;
+        }
+
+        .nested.active {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 8px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 10px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        .control-group input[type="color"] {
+            width: 45px;
+            height: 22px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .section-title {
+            color: #884D2A;
+            margin: 10px 0 6px;
+            font-size: 12px;
+            border-bottom: 2px solid #884D2A;
+            padding-bottom: 3px;
+        }
+
+        #zoom-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+        }
+
+        button {
+            width: 100%;
+            padding: 7px;
+            background: #884D2A;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 10px;
+            margin-top: 6px;
+        }
+
+        button:hover {
+            background: #6E3D1F;
+        }
+
+        h2 {
+            color: #884D2A;
+            text-align: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="natural-tree.css">
+</head>
+
+<body>
+    <div id="container">
+        <div id="canvas-container">
+            <canvas id="treeCanvas" width="1200" height="900"></canvas>
+            <div id="zoom-info">تكبير: <span id="zoom-level">100</span>% | الأوراق: <span id="leaf-count">0</span></div>
+        </div>
+        <div id="sidebar">
+            <h2>🌳 الشجرة</h2>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('trunk')">الجذع</button>
+                <button class="tab-btn" onclick="switchTab('branches1')">م1</button>
+                <button class="tab-btn" onclick="switchTab('branches2')">م2</button>
+                <button class="tab-btn" onclick="switchTab('branches3')">م3</button>
+                <button class="tab-btn" onclick="switchTab('branches4')">م4</button>
+                <button class="tab-btn" onclick="switchTab('leaves')">الأوراق</button>
+                <button class="tab-btn" onclick="switchTab('colors')">الألوان</button>
+                <button class="tab-btn" onclick="switchTab('family')">العائلة</button>
+            </div>
+
+            <!-- تبويب الجذع -->
+            <div id="tab-trunk" class="tab-content active">
+                <h3 class="section-title">📏 أبعاد الجذع</h3>
+                <div class="control-group">
+                    <label>ارتفاع الجذع: <span id="v-trunkHeight">400</span>px</label>
+                    <input type="range" id="i-trunkHeight" min="100" max="700" value="400">
+                </div>
+                <div class="control-group">
+                    <label>عرض القاعدة: <span id="v-baseWidth">120</span>px</label>
+                    <input type="range" id="i-baseWidth" min="40" max="250" value="120">
+                </div>
+                <div class="control-group">
+                    <label>عرض القمة: <span id="v-topWidth">60</span>px</label>
+                    <input type="range" id="i-topWidth" min="20" max="150" value="60">
+                </div>
+                <div class="control-group">
+                    <label>تعرج الحواف: <span id="v-edgeWiggle">15</span></label>
+                    <input type="range" id="i-edgeWiggle" min="0" max="40" value="15">
+                </div>
+                <div class="control-group">
+                    <label>خطوط اللحاء: <span id="v-barkLines">8</span></label>
+                    <input type="range" id="i-barkLines" min="0" max="20" value="8">
+                </div>
+                <div class="control-group">
+                    <label>انحناء الجذع: <span id="v-trunkCurve">0</span></label>
+                    <input type="range" id="i-trunkCurve" min="-50" max="50" value="0">
+                </div>
+
+                <h3 class="section-title">👤 دوائر الآباء</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showFatherCircles" checked>
+                    <label for="i-showFatherCircles">إظهار دوائر الآباء</label>
+                </div>
+                <div class="control-group">
+                    <label>حجم الدائرة: <span id="v-fatherCircleRadiusScale">1.2</span></label>
+                    <input type="range" id="i-fatherCircleRadiusScale" min="0.5" max="2.5" step="0.05" value="1.2">
+                </div>
+                <div class="control-group">
+                    <label>موضع الدائرة على الغصن: <span id="v-fatherCirclePos">0.2</span></label>
+                    <input type="range" id="i-fatherCirclePos" min="0.05" max="0.5" step="0.01" value="0.2">
+                </div>
+                <div class="control-group">
+                    <label>سماكة الحد: <span id="v-fatherCircleStrokeWidth">2</span></label>
+                    <input type="range" id="i-fatherCircleStrokeWidth" min="1" max="6" step="0.5" value="2">
+                </div>
+                <div class="control-group">
+                    <label>حجم الخط داخل الدائرة: <span id="v-fatherCircleFontScale">0.5</span></label>
+                    <input type="range" id="i-fatherCircleFontScale" min="0.3" max="0.8" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>لون الدائرة:</label>
+                    <input type="color" id="i-fatherCircleColor" value="#8B4513">
+                </div>
+                <div class="control-group">
+                    <label>لون حد الدائرة:</label>
+                    <input type="color" id="i-fatherCircleStrokeColor" value="#5D3A1A">
+                </div>
+                <div class="control-group">
+                    <label>لون النص:</label>
+                    <input type="color" id="i-fatherCircleTextColor" value="#FFFFFF">
+                </div>
+
+                <h3 class="section-title">⭕ الغلاف الخارجي</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showCanopy" checked>
+                    <label for="i-showCanopy">إظهار الغلاف (مؤقت)</label>
+                </div>
+                <div class="control-group">
+                    <label>نصف قطر الغلاف: <span id="v-canopyRadius">300</span>px</label>
+                    <input type="range" id="i-canopyRadius" min="100" max="1500" value="300">
+                </div>
+                <div class="control-group">
+                    <label>ارتفاع مركز الغلاف: <span id="v-canopyOffsetY">50</span>px</label>
+                    <input type="range" id="i-canopyOffsetY" min="-100" max="200" value="50">
+                </div>
+
+                <h3 class="section-title">🌱 الجذور</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showRoots" checked>
+                    <label for="i-showRoots">إظهار الجذور</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الجذور: <span id="v-rootCount">5</span></label>
+                    <input type="range" id="i-rootCount" min="2" max="10" value="5">
+                </div>
+                <div class="control-group">
+                    <label>طول الجذور: <span id="v-rootLength">60</span>px</label>
+                    <input type="range" id="i-rootLength" min="20" max="120" value="60">
+                </div>
+            </div>
+
+            <!-- تبويب الأغصان الرئيسية -->
+            <div id="tab-branches1" class="tab-content">
+                <h3 class="section-title">🌿 الأغصان الرئيسية</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showBranches" checked>
+                    <label for="i-showBranches">إظهار الأغصان الرئيسية</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الأغصان: <span id="v-branchCount">6</span></label>
+                    <input type="range" id="i-branchCount" min="2" max="12" value="6">
+                </div>
+                <div class="control-group">
+                    <label>طول الأغصان: <span id="v-branchLength">250</span>px</label>
+                    <input type="range" id="i-branchLength" min="50" max="1500" value="250">
+                </div>
+                <div class="control-group">
+                    <label>سماكة الأغصان: <span id="v-branchWidth">0.5</span></label>
+                    <input type="range" id="i-branchWidth" min="0.1" max="1" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>عرض بداية الغصن: <span id="v-branchBaseWidth">1.5</span></label>
+                    <input type="range" id="i-branchBaseWidth" min="1" max="3" step="0.1" value="1.5">
+                </div>
+                <div class="control-group">
+                    <label>التباعد بين نقط بداية الأغصان: <span id="v-branchHorizontalGap">0</span>px</label>
+                    <input type="range" id="i-branchHorizontalGap" min="-150" max="150" value="0">
+                </div>
+                <div class="control-group">
+                    <label>زاوية الانتشار: <span id="v-branchSpread">140</span>°</label>
+                    <input type="range" id="i-branchSpread" min="60" max="180" value="140">
+                </div>
+                <div class="control-group">
+                    <label>الزاوية بين الأغصان: <span id="v-branchAngleGap">0</span>°</label>
+                    <input type="range" id="i-branchAngleGap" min="0" max="30" value="0">
+                </div>
+                <div class="control-group">
+                    <label>انحناء الأغصان: <span id="v-branchCurve">0.4</span></label>
+                    <input type="range" id="i-branchCurve" min="0" max="1" step="0.05" value="0.4">
+                </div>
+                <div class="control-group">
+                    <label>موضع الانحناء: <span id="v-branchCurvePos">0.5</span></label>
+                    <input type="range" id="i-branchCurvePos" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>تعرج الأغصان: <span id="v-branchWiggle">0.1</span></label>
+                    <input type="range" id="i-branchWiggle" min="0" max="0.5" step="0.02" value="0.1">
+                </div>
+                <div class="control-group">
+                    <label>نقطة البداية: <span id="v-branchStartPos">0.7</span></label>
+                    <input type="range" id="i-branchStartPos" min="0.3" max="1" step="0.05" value="0.7">
+                </div>
+                <div class="control-group">
+                    <label>تناقص السماكة: <span id="v-branchTaper">0.3</span></label>
+                    <input type="range" id="i-branchTaper" min="0.1" max="0.8" step="0.05" value="0.3">
+                </div>
+            </div>
+
+            <!-- تبويب الأغصان الفرعية -->
+            <div id="tab-branches2" class="tab-content">
+                <h3 class="section-title">🍃 الأغصان الفرعية (من الرئيسية)</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showBranches2" checked>
+                    <label for="i-showBranches2">إظهار الأغصان الفرعية</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الفروع لكل غصن: <span id="v-branch2Count">3</span></label>
+                    <input type="range" id="i-branch2Count" min="1" max="24" value="3">
+                </div>
+                <div class="control-group">
+                    <label>طول الفروع: <span id="v-branch2Length">80</span>px</label>
+                    <input type="range" id="i-branch2Length" min="20" max="200" value="80">
+                </div>
+                <div class="control-group">
+                    <label>سماكة الفروع: <span id="v-branch2Width">0.5</span></label>
+                    <input type="range" id="i-branch2Width" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>زاوية الانتشار: <span id="v-branch2Spread">60</span>°</label>
+                    <input type="range" id="i-branch2Spread" min="20" max="120" value="60">
+                </div>
+                <div class="control-group">
+                    <label>انحناء الفروع: <span id="v-branch2Curve">0.3</span></label>
+                    <input type="range" id="i-branch2Curve" min="0" max="1" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>تعرج الفروع: <span id="v-branch2Wiggle">0.05</span></label>
+                    <input type="range" id="i-branch2Wiggle" min="0" max="0.3" step="0.01" value="0.05">
+                </div>
+                <div class="control-group">
+                    <label>بداية الفروع على الغصن: <span id="v-branch2Start">0.3</span></label>
+                    <input type="range" id="i-branch2Start" min="0.1" max="0.5" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>نهاية الفروع على الغصن: <span id="v-branch2End">0.9</span></label>
+                    <input type="range" id="i-branch2End" min="0.5" max="1" step="0.05" value="0.9">
+                </div>
+                <div class="control-group">
+                    <label>تناقص السماكة: <span id="v-branch2Taper">0.5</span></label>
+                    <input type="range" id="i-branch2Taper" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+            </div>
+
+            <!-- تبويب المستوى الثالث -->
+            <div id="tab-branches3" class="tab-content">
+                <h3 class="section-title">🌿 المستوى الثالث</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showBranches3" checked>
+                    <label for="i-showBranches3">إظهار المستوى الثالث</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الفروع لكل غصن: <span id="v-branch3Count">2</span></label>
+                    <input type="range" id="i-branch3Count" min="1" max="6" value="2">
+                </div>
+                <div class="control-group">
+                    <label>طول الفروع: <span id="v-branch3Length">60</span>px</label>
+                    <input type="range" id="i-branch3Length" min="20" max="150" value="60">
+                </div>
+                <div class="control-group">
+                    <label>سماكة الفروع: <span id="v-branch3Width">0.5</span></label>
+                    <input type="range" id="i-branch3Width" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>زاوية الانتشار: <span id="v-branch3Spread">50</span>°</label>
+                    <input type="range" id="i-branch3Spread" min="20" max="100" value="50">
+                </div>
+                <div class="control-group">
+                    <label>انحناء الفروع: <span id="v-branch3Curve">0.4</span></label>
+                    <input type="range" id="i-branch3Curve" min="0" max="1" step="0.05" value="0.4">
+                </div>
+                <div class="control-group">
+                    <label>تعرج الفروع: <span id="v-branch3Wiggle">0.1</span></label>
+                    <input type="range" id="i-branch3Wiggle" min="0" max="0.3" step="0.01" value="0.1">
+                </div>
+                <div class="control-group">
+                    <label>بداية الفروع: <span id="v-branch3Start">0.3</span></label>
+                    <input type="range" id="i-branch3Start" min="0.1" max="0.6" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>نهاية الفروع: <span id="v-branch3End">0.85</span></label>
+                    <input type="range" id="i-branch3End" min="0.5" max="1" step="0.05" value="0.85">
+                </div>
+                <div class="control-group">
+                    <label>تناقص السماكة: <span id="v-branch3Taper">0.5</span></label>
+                    <input type="range" id="i-branch3Taper" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+            </div>
+
+            <!-- تبويب المستوى الرابع -->
+            <div id="tab-branches4" class="tab-content">
+                <h3 class="section-title">🌱 المستوى الرابع</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showBranches4" checked>
+                    <label for="i-showBranches4">إظهار المستوى الرابع</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الفروع لكل غصن: <span id="v-branch4Count">2</span></label>
+                    <input type="range" id="i-branch4Count" min="1" max="5" value="2">
+                </div>
+                <div class="control-group">
+                    <label>طول الفروع: <span id="v-branch4Length">40</span>px</label>
+                    <input type="range" id="i-branch4Length" min="15" max="100" value="40">
+                </div>
+                <div class="control-group">
+                    <label>سماكة الفروع: <span id="v-branch4Width">0.5</span></label>
+                    <input type="range" id="i-branch4Width" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label>زاوية الانتشار: <span id="v-branch4Spread">45</span>°</label>
+                    <input type="range" id="i-branch4Spread" min="20" max="90" value="45">
+                </div>
+                <div class="control-group">
+                    <label>انحناء الفروع: <span id="v-branch4Curve">0.35</span></label>
+                    <input type="range" id="i-branch4Curve" min="0" max="1" step="0.05" value="0.35">
+                </div>
+                <div class="control-group">
+                    <label>تعرج الفروع: <span id="v-branch4Wiggle">0.08</span></label>
+                    <input type="range" id="i-branch4Wiggle" min="0" max="0.3" step="0.01" value="0.08">
+                </div>
+                <div class="control-group">
+                    <label>بداية الفروع: <span id="v-branch4Start">0.3</span></label>
+                    <input type="range" id="i-branch4Start" min="0.1" max="0.6" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>نهاية الفروع: <span id="v-branch4End">0.8</span></label>
+                    <input type="range" id="i-branch4End" min="0.5" max="1" step="0.05" value="0.8">
+                </div>
+                <div class="control-group">
+                    <label>تناقص السماكة: <span id="v-branch4Taper">0.5</span></label>
+                    <input type="range" id="i-branch4Taper" min="0.2" max="0.8" step="0.05" value="0.5">
+                </div>
+            </div>
+
+            <!-- تبويب الألوان -->
+            <div id="tab-colors" class="tab-content">
+                <h3 class="section-title">🎨 ألوان الجذع</h3>
+                <div class="control-group">
+                    <label>اللون الرئيسي:</label>
+                    <input type="color" id="i-trunkColor" value="#884D2A">
+                </div>
+                <div class="control-group">
+                    <label>لون الظل:</label>
+                    <input type="color" id="i-shadowColor" value="#331B0C">
+                </div>
+                <div class="control-group">
+                    <label>لون الإضاءة:</label>
+                    <input type="color" id="i-highlightColor" value="#A66B3D">
+                </div>
+                <h3 class="section-title">🌿 ألوان الأغصان</h3>
+                <div class="control-group">
+                    <label>لون الأغصان:</label>
+                    <input type="color" id="i-branchColor" value="#6B3D1F">
+                </div>
+                <div class="control-group">
+                    <label>ظل الأغصان:</label>
+                    <input type="color" id="i-branchShadow" value="#331B0C">
+                </div>
+                <h3 class="section-title">🍃 ألوان الأوراق</h3>
+                <div class="control-group">
+                    <label>لون الورقة:</label>
+                    <input type="color" id="i-leafColor" value="#228B22">
+                </div>
+                <div class="control-group">
+                    <label>لون العرق:</label>
+                    <input type="color" id="i-leafVeinColor" value="#1B5E20">
+                </div>
+            </div>
+
+            <!-- تبويب الأوراق -->
+            <div id="tab-leaves" class="tab-content">
+                <h3 class="section-title">🍃 الأوراق</h3>
+                <div class="control-group checkbox-group">
+                    <input type="checkbox" id="i-showLeaves" checked>
+                    <label for="i-showLeaves">إظهار الأوراق</label>
+                </div>
+                <div class="control-group">
+                    <label>عدد الأوراق لكل غصن: <span id="v-leavesPerBranch">5</span></label>
+                    <input type="range" id="i-leavesPerBranch" min="1" max="15" value="5">
+                </div>
+                <div class="control-group">
+                    <label>حجم الورقة: <span id="v-leafSize">20</span>px</label>
+                    <input type="range" id="i-leafSize" min="8" max="50" value="20">
+                </div>
+                <div class="control-group">
+                    <label>تنوع الحجم: <span id="v-leafSizeVariation">0.3</span></label>
+                    <input type="range" id="i-leafSizeVariation" min="0" max="0.5" step="0.05" value="0.3">
+                </div>
+                <div class="control-group">
+                    <label>بداية الأوراق على الغصن: <span id="v-leafStart">0.4</span></label>
+                    <input type="range" id="i-leafStart" min="0.1" max="0.6" step="0.05" value="0.4">
+                </div>
+                <div class="control-group">
+                    <label>تنوع الزاوية: <span id="v-leafAngleVariation">30</span>°</label>
+                    <input type="range" id="i-leafAngleVariation" min="0" max="90" value="30">
+                </div>
+            </div>
+
+            <!-- تبويب العائلة -->
+            <div id="tab-family" class="tab-content">
+                <h3 class="section-title">👨‍👩‍👧‍👦 توليد شجرة العائلة</h3>
+                <p style="font-size: 10px; color: #666; margin-bottom: 8px;">حدد عدد الأفراد في كل جيل:</p>
+
+                <div class="control-group">
+                    <label>أفراد الجيل الأول (على الجذع): <span id="v-countGen1">1</span></label>
+                    <input type="range" id="i-countGen1" min="1" max="5" value="1"
+                        oninput="document.getElementById('v-countGen1').textContent = this.value">
+                </div>
+
+                <div class="control-group">
+                    <label>أفراد الجيل الثاني: <span id="v-countGen2">4</span></label>
+                    <input type="range" id="i-countGen2" min="1" max="15" value="4"
+                        oninput="document.getElementById('v-countGen2').textContent = this.value">
+                </div>
+
+                <div class="control-group">
+                    <label>أفراد الجيل الثالث: <span id="v-countGen3">12</span></label>
+                    <input type="range" id="i-countGen3" min="0" max="40" value="12"
+                        oninput="document.getElementById('v-countGen3').textContent = this.value">
+                </div>
+
+                <div class="control-group">
+                    <label>أفراد الجيل الرابع: <span id="v-countGen4">25</span></label>
+                    <input type="range" id="i-countGen4" min="0" max="80" value="25"
+                        oninput="document.getElementById('v-countGen4').textContent = this.value">
+                </div>
+
+                <div class="control-group">
+                    <label>أفراد الجيل الخامس: <span id="v-countGen5">0</span></label>
+                    <input type="range" id="i-countGen5" min="0" max="150" value="0"
+                        oninput="document.getElementById('v-countGen5').textContent = this.value">
+                </div>
+
+                <button onclick="generateFamilyTree()" style="background: #1976d2;">⚡ توليد الشجرة</button>
+                <button onclick="exportFamilyJSON()" style="background: #2e7d32;">💾 حفظ الشجرة JSON</button>
+                <button onclick="document.getElementById('familyJsonFile').click()" style="background: #6d4c41;">📂 استيراد JSON</button>
+                <input type="file" id="familyJsonFile" accept=".json,application/json" style="display:none"
+                    onchange="importFamilyJSON(event)">
+
+                <div class="control-group"
+                    style="background: #e3f2fd; padding: 8px; border-radius: 5px; border: 1px solid #90caf9;">
+                    <label style="color: #1565c0; font-weight: bold; margin-bottom: 5px;">🧬 وضع الرسم:</label>
+                    <div class="checkbox-group" style="margin-top: 4px;">
+                        <input type="checkbox" id="i-useFamilyData" style="width: auto;" onchange="toggleFamilyMode()">
+                        <label for="i-useFamilyData" style="margin: 0; cursor: pointer;">رسم من بيانات العائلة</label>
+                    </div>
+                </div>
+
+                <h4 class="section-title">📋 عرض شجري</h4>
+                <div id="treeViewContainer" class="tree-view-container">
+                    <p style="text-align: center; color: #999; font-size: 11px;">اضغط على "توليد الشجرة" للعرض</p>
+                </div>
+            </div>
+
+            <div style="padding: 10px;">
+                <button onclick="resetDefaults()">🔄 إعادة تعيين</button>
+                <button onclick="exportImage()" style="background: #2e7d32;">📥 تصدير الصورة</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('treeCanvas');
+        let ctx = canvas.getContext('2d');
+        const cachedTreeCanvas = document.createElement('canvas');
+        const cachedTreeCtx = cachedTreeCanvas.getContext('2d');
+        let zoom = 1, panX = 0, panY = 0, isDragging = false, lastX, lastY;
+        let drawRafId = null;
+        let randomTreeDirty = true;
+        let cachedLeafCount = 0;
+
+        // مصفوفة أسماء الذكور العربية
+        const maleNames = [
+            'محمد', 'أحمد', 'علي', 'عمر', 'خالد', 'يوسف', 'إبراهيم', 'عبدالله',
+            'سعد', 'فهد', 'سلطان', 'ناصر', 'عبدالرحمن', 'سعود', 'تركي', 'بندر',
+            'فيصل', 'سلمان', 'نايف', 'مشاري', 'راشد', 'حمد', 'ماجد', 'وليد',
+            'طلال', 'بدر', 'منصور', 'عادل', 'صالح', 'حسن', 'حسين', 'جاسم',
+            'زياد', 'هاني', 'كريم', 'سامي', 'رامي', 'ياسر', 'عمار', 'أنس'
+        ];
+
+        // دالة للحصول على اسم عشوائي
+        function getRandomName() {
+            return maleNames[Math.floor(Math.random() * maleNames.length)];
+        }
+
+        // أسماء عائلة أكبر لوضع شجرة العائلة
+        const familyNames = [
+            "أحمد", "محمد", "علي", "خالد", "عمر", "يوسف", "إبراهيم", "زيد",
+            "حسن", "حسين", "عبدالله", "عبدالرحمن", "سعيد", "سلمان", "فهد", "فيصل", "تركي", "بندر", "ماجد", "مشعل", "نواف", "سلطان",
+            "طلال", "عثمان", "عمار", "ياسر", "وليد", "سامي", "رائد", "زياد", "طارق", "هشام", "وائل", "عماد", "مهند", "باسم", "حمزة",
+            "أنس", "عادل", "مازن", "سمير", "كريم", "أيمن", "نزار", "جمال", "صالح", "قصي", "لؤي", "عدنان", "كاظم", "جعفر", "بلال",
+            "تيم", "غيث", "يزيد", "أوس", "معاذ", "براء", "سيف", "إلياس", "آدم", "يونس", "إدريس", "يعقوب", "إسماعيل", "زكريا", "يحيى",
+            "عيسى", "موسى", "هارون", "داود", "سليمان", "أيوب", "شعيب", "هود", "لوط", "نوح", "فراس", "عزالدين", "حسام", "بشار"
+        ];
+
+        let familyNamePool = [];
+
+        function initFamilyNamePool() {
+            familyNamePool = [...familyNames];
+            for (let i = familyNamePool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [familyNamePool[i], familyNamePool[j]] = [familyNamePool[j], familyNamePool[i]];
+            }
+        }
+
+        function getFamilyName() {
+            if (familyNamePool.length === 0) initFamilyNamePool();
+            return familyNamePool.pop();
+        }
+
+        // بيانات العائلة ووضع الرسم
+        let familyData = null;
+        let useFamilyData = false;
+
+        const familyConfig = {
+            trunkLength: 220,
+            trunkBaseWidth: 80,
+            trunkTopWidth: 60,
+            leafSize: 20
+        };
+
+        const defaultConfig = {
+            trunkHeight: 400, baseWidth: 120, topWidth: 60,
+            edgeWiggle: 15, barkLines: 8, trunkCurve: 0,
+            showFatherCircles: true, fatherCircleRadiusScale: 1.2, fatherCirclePos: 0.2,
+            fatherCircleStrokeWidth: 2, fatherCircleFontScale: 0.5,
+            fatherCircleColor: '#8B4513', fatherCircleStrokeColor: '#5D3A1A', fatherCircleTextColor: '#FFFFFF',
+            showRoots: true, rootCount: 5, rootLength: 60,
+            trunkColor: '#884D2A', shadowColor: '#331B0C', highlightColor: '#A66B3D',
+            branchColor: '#6B3D1F', branchShadow: '#331B0C',
+            leafColor: '#228B22', leafVeinColor: '#1B5E20',
+            showCanopy: true, canopyRadius: 300, canopyOffsetY: 50,
+            showBranches: true, branchCount: 6, branchLength: 250,
+            branchWidth: 0.5, branchBaseWidth: 1.5, branchHorizontalGap: 0, branchSpread: 140, branchAngleGap: 0, branchCurve: 0.7,
+            branchCurvePos: 0.4, branchWiggle: 0.15, branchStartPos: 0.85, branchTaper: 0.4,
+            showBranches2: true, branch2Count: 4, branch2Length: 100,
+            branch2Width: 0.5, branch2Spread: 70, branch2Curve: 0.5,
+            branch2Wiggle: 0.12, branch2Start: 0.25, branch2End: 0.9, branch2Taper: 0.5,
+            showBranches3: true, branch3Count: 2, branch3Length: 60,
+            branch3Width: 0.5, branch3Spread: 50, branch3Curve: 0.4,
+            branch3Wiggle: 0.1, branch3Start: 0.3, branch3End: 0.85, branch3Taper: 0.5,
+            showBranches4: true, branch4Count: 2, branch4Length: 40,
+            branch4Width: 0.5, branch4Spread: 45, branch4Curve: 0.35,
+            branch4Wiggle: 0.08, branch4Start: 0.3, branch4End: 0.8, branch4Taper: 0.5,
+            showLeaves: true, leavesPerBranch: 5, leafSize: 20,
+            leafSizeVariation: 0.3, leafStart: 0.4, leafAngleVariation: 30
+        };
+
+        let config = loadConfig();
+
+        // تحميل الإعدادات من localStorage
+        function loadConfig() {
+            const saved = localStorage.getItem('treeTrunkConfig');
+            if (saved) {
+                try {
+                    return { ...defaultConfig, ...JSON.parse(saved) };
+                } catch (e) {
+                    return { ...defaultConfig };
+                }
+            }
+            return { ...defaultConfig };
+        }
+
+        // حفظ الإعدادات في localStorage
+        function saveConfig() {
+            localStorage.setItem('treeTrunkConfig', JSON.stringify(config));
+        }
+
+        function markRandomTreeDirty() {
+            randomTreeDirty = true;
+        }
+
+        function scheduleDraw() {
+            if (drawRafId !== null) return;
+            drawRafId = requestAnimationFrame(() => {
+                drawRafId = null;
+                draw();
+            });
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // --- وظائف توليد بيانات العائلة ---
+        function generateFamilyTree() {
+            initFamilyNamePool();
+
+            const countGen1 = parseInt(document.getElementById('i-countGen1').value);
+            const countGen2 = parseInt(document.getElementById('i-countGen2').value);
+            const countGen3 = parseInt(document.getElementById('i-countGen3').value);
+            const countGen4 = parseInt(document.getElementById('i-countGen4').value);
+            const countGen5 = parseInt(document.getElementById('i-countGen5').value);
+
+            let roots = [];
+            for (let i = 0; i < countGen1; i++) {
+                roots.push({
+                    id: `g1-${i}`,
+                    name: getFamilyName(),
+                    generation: 1,
+                    children: []
+                });
+            }
+
+            distributeGeneration(roots, countGen2, 2);
+
+            let allGen2 = [];
+            roots.forEach(r => allGen2.push(...r.children));
+            distributeGeneration(allGen2, countGen3, 3);
+
+            let allGen3 = [];
+            allGen2.forEach(g2 => allGen3.push(...g2.children));
+            distributeGeneration(allGen3, countGen4, 4);
+
+            let allGen4 = [];
+            allGen3.forEach(g3 => allGen4.push(...g3.children));
+            distributeGeneration(allGen4, countGen5, 5);
+
+            familyData = roots;
+            saveFamilyData();
+            renderFamilyTreeView();
+
+            if (useFamilyData) scheduleDraw();
+        }
+
+        function distributeGeneration(parents, count, generationNumber) {
+            if (!parents || parents.length === 0 || count === 0) return;
+            for (let i = 0; i < count; i++) {
+                const randomParent = parents[Math.floor(Math.random() * parents.length)];
+                randomParent.children.push({
+                    id: `g${generationNumber}-${i}`,
+                    name: getFamilyName(),
+                    generation: generationNumber,
+                    children: []
+                });
+            }
+        }
+
+        function renderFamilyTreeView() {
+            const container = document.getElementById('treeViewContainer');
+            if (!container) return;
+            if (!familyData || familyData.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; font-size: 11px;">لا توجد بيانات. اضغط "توليد الشجرة"</p>';
+                return;
+            }
+
+            let html = '<ul class="tree-ul">';
+            familyData.forEach(root => { html += createFamilyTreeNodeHTML(root); });
+            html += '</ul>';
+            container.innerHTML = html;
+
+            const toggler = document.getElementsByClassName("caret");
+            for (let i = 0; i < toggler.length; i++) {
+                toggler[i].parentElement.addEventListener("click", function () {
+                    this.parentElement.querySelector(".nested").classList.toggle("active");
+                    this.querySelector(".caret").classList.toggle("caret-down");
+                });
+            }
+        }
+
+        function createFamilyTreeNodeHTML(node) {
+            const hasChildren = node.children && node.children.length > 0;
+            let html = '<li class="tree-li">';
+            html += '<span class="tree-content">';
+            if (hasChildren) {
+                html += '<span class="caret caret-down">▶</span> ';
+            } else {
+                html += '<span style="width:15px; display:inline-block"></span>';
+            }
+            html += `<span style="font-weight:bold; color:#333;">${node.name}</span> <span style="font-size:9px; color:#888;">(جيل ${node.generation})</span>`;
+            html += '</span>';
+
+            if (hasChildren) {
+                html += '<ul class="nested active tree-ul">';
+                node.children.forEach(child => { html += createFamilyTreeNodeHTML(child); });
+                html += '</ul>';
+            }
+
+            html += '</li>';
+            return html;
+        }
+
+        function saveFamilyData() {
+            if (familyData) {
+                localStorage.setItem('familyTreeData', JSON.stringify(familyData));
+            }
+        }
+
+        function loadFamilyData() {
+            const saved = localStorage.getItem('familyTreeData');
+            if (saved) {
+                try {
+                    familyData = JSON.parse(saved);
+                    // The dynamic renderer validates records before building the view.
+                } catch (e) {
+                    console.error("Error loading family data", e);
+                }
+            }
+        }
+
+        function normalizeFamilyNode(node, generation = 1, path = '0') {
+            const children = Array.isArray(node?.children) ? node.children : [];
+            const numericGeneration = Number(node?.generation);
+            return {
+                id: (typeof node?.id === 'string' && node.id.trim()) ? node.id : `import-${path}`,
+                name: (typeof node?.name === 'string' && node.name.trim()) ? node.name.trim() : 'بدون اسم',
+                generation: Number.isFinite(numericGeneration) ? numericGeneration : generation,
+                children: children.map((child, index) => normalizeFamilyNode(child, generation + 1, `${path}-${index}`))
+            };
+        }
+
+        function normalizeImportedFamilyData(rawData) {
+            let roots = null;
+            if (Array.isArray(rawData)) {
+                roots = rawData;
+            } else if (rawData && Array.isArray(rawData.familyData)) {
+                roots = rawData.familyData;
+            } else if (rawData && Array.isArray(rawData.roots)) {
+                roots = rawData.roots;
+            } else if (rawData && rawData.root && typeof rawData.root === 'object') {
+                roots = [rawData.root];
+            }
+
+            if (!roots || roots.length === 0) {
+                throw new Error('صيغة JSON غير مدعومة أو لا تحتوي على بيانات شجرة.');
+            }
+
+            return roots.map((root, index) => normalizeFamilyNode(root, 1, String(index)));
+        }
+
+        function exportFamilyJSON() {
+            if (!familyData || familyData.length === 0) {
+                alert('لا توجد بيانات شجرة لحفظها. قم بتوليد الشجرة أولاً.');
+                return;
+            }
+
+            const payload = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                familyData: familyData
+            };
+
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const datePart = new Date().toISOString().slice(0, 10);
+            link.download = `family-tree-${datePart}.json`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importFamilyJSON(event) {
+            const fileInput = event?.target;
+            const file = fileInput?.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (loadEvent) {
+                try {
+                    const content = loadEvent?.target?.result;
+                    const parsed = JSON.parse(content);
+                    familyData = normalizeImportedFamilyData(parsed);
+                    saveFamilyData();
+                    renderFamilyTreeView();
+
+                    const checkbox = document.getElementById('i-useFamilyData');
+                    if (checkbox) checkbox.checked = true;
+                    useFamilyData = true;
+                    scheduleDraw();
+                } catch (error) {
+                    alert('تعذر استيراد الملف. تأكد أن JSON صحيح ومطابق لبنية الشجرة.');
+                    console.error('Import family JSON error:', error);
+                } finally {
+                    if (fileInput) fileInput.value = '';
+                }
+            };
+            reader.onerror = function () {
+                alert('حدث خطأ أثناء قراءة الملف.');
+                if (fileInput) fileInput.value = '';
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+
+        function toggleFamilyMode() {
+            const checkbox = document.getElementById('i-useFamilyData');
+            useFamilyData = checkbox ? checkbox.checked : false;
+            scheduleDraw();
+        }
+
+        function countFamilyNodes(nodes) {
+            if (!nodes || nodes.length === 0) return 0;
+            let total = 0;
+            for (const n of nodes) {
+                total += 1;
+                if (n.children && n.children.length > 0) {
+                    total += countFamilyNodes(n.children);
+                }
+            }
+            return total;
+        }
+
+        function setupControls() {
+            const rangeControls = [
+                'trunkHeight', 'baseWidth', 'topWidth', 'edgeWiggle', 'barkLines', 'trunkCurve',
+                'fatherCircleRadiusScale', 'fatherCirclePos', 'fatherCircleStrokeWidth', 'fatherCircleFontScale',
+                'rootCount', 'rootLength', 'canopyRadius', 'canopyOffsetY',
+                'branchCount', 'branchLength', 'branchWidth', 'branchBaseWidth', 'branchHorizontalGap',
+                'branchSpread', 'branchAngleGap', 'branchCurve', 'branchCurvePos', 'branchWiggle', 'branchStartPos', 'branchTaper',
+                'branch2Count', 'branch2Length', 'branch2Width', 'branch2Spread', 'branch2Curve',
+                'branch2Wiggle', 'branch2Start', 'branch2End', 'branch2Taper',
+                'branch3Count', 'branch3Length', 'branch3Width', 'branch3Spread', 'branch3Curve',
+                'branch3Wiggle', 'branch3Start', 'branch3End', 'branch3Taper',
+                'branch4Count', 'branch4Length', 'branch4Width', 'branch4Spread', 'branch4Curve',
+                'branch4Wiggle', 'branch4Start', 'branch4End', 'branch4Taper',
+                'leavesPerBranch', 'leafSize', 'leafSizeVariation', 'leafStart', 'leafAngleVariation'
+            ];
+            rangeControls.forEach(id => {
+                const input = document.getElementById('i-' + id);
+                const display = document.getElementById('v-' + id);
+                if (input) {
+                    input.addEventListener('input', function () {
+                        config[id] = parseFloat(this.value);
+                        if (display) display.textContent = this.value;
+                        saveConfig();
+                        markRandomTreeDirty();
+                        scheduleDraw();
+                    });
+                }
+            });
+            ['trunkColor', 'shadowColor', 'highlightColor', 'branchColor', 'branchShadow', 'leafColor', 'leafVeinColor',
+                'fatherCircleColor', 'fatherCircleStrokeColor', 'fatherCircleTextColor'].forEach(id => {
+                const input = document.getElementById('i-' + id);
+                if (input) input.addEventListener('input', function () { config[id] = this.value; saveConfig(); markRandomTreeDirty(); scheduleDraw(); });
+            });
+            ['showRoots', 'showBranches', 'showBranches2', 'showBranches3', 'showBranches4', 'showCanopy', 'showLeaves',
+                'showFatherCircles'].forEach(id => {
+                const input = document.getElementById('i-' + id);
+                if (input) input.addEventListener('change', function () { config[id] = this.checked; saveConfig(); markRandomTreeDirty(); scheduleDraw(); });
+            });
+        }
+
+        canvas.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.2), 5);
+            panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+            panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+            zoom = newZoom;
+            document.getElementById('zoom-level').textContent = Math.round(zoom * 100);
+            scheduleDraw();
+        });
+        canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; canvas.style.cursor = 'grabbing'; });
+        canvas.addEventListener('mousemove', e => { if (isDragging) { panX += e.clientX - lastX; panY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; scheduleDraw(); } });
+        canvas.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor = 'grab'; });
+        canvas.addEventListener('mouseleave', () => { isDragging = false; canvas.style.cursor = 'grab'; });
+
+        function generateWigglyEdge(startX, startY, endX, endY, wiggle, points, seed) {
+            const path = [];
+            const dx = endX - startX, dy = endY - startY;
+            for (let i = 0; i <= points; i++) {
+                const t = i / points;
+                const noise = Math.sin(seed + i * 2.5) * wiggle * (1 - Math.abs(t - 0.5) * 0.5);
+                path.push({ x: startX + dx * t + noise, y: startY + dy * t });
+            }
+            return path;
+        }
+
+        // مولد شبه عشوائي ثابت لتوحيد حسابات الفروع (مهم للحساب قبل الرسم)
+        function hashSeed(...vals) {
+            let h = 0;
+            for (const v of vals) {
+                h = Math.sin((v + h) * 12.9898) * 43758.5453;
+                h = h - Math.floor(h);
+            }
+            return h;
+        }
+
+        // رسم غصن واحد مرن ومنحني - يُرجع نقاط الغصن والزاوية
+        function drawBranch(startX, startY, length, angle, width, curveAmount, curvePos, wiggle, taper, drawIt = true, useBaseWidth = false) {
+            const segments = drawIt ? 16 : 8; // تخفيف الحساب أثناء المعاينة
+            const points = [];
+
+            // عرض البداية (أعرض) وعرض النهاية
+            const startWidth = useBaseWidth ? width * config.branchBaseWidth : width;
+            const endWidth = width * (1 - taper);
+
+            // إضافة التفاف وانحناء طبيعي
+            const twistSeed = hashSeed(startX, startY, length, angle, width, curveAmount, curvePos);
+            const twistAmount = (twistSeed - 0.5) * 0.3; // التفاف شبه عشوائي ثابت
+            const secondaryCurve = curveAmount * 0.3; // انحناء ثانوي
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+
+                // انحناء رئيسي (S-curve للمظهر الطبيعي)
+                let curveOffset = 0;
+                if (t < curvePos) {
+                    curveOffset = curveAmount * Math.sin((t / curvePos) * Math.PI / 2);
+                } else {
+                    curveOffset = curveAmount * Math.cos(((t - curvePos) / (1 - curvePos)) * Math.PI / 2);
+                }
+
+                // انحناء ثانوي (موجة إضافية)
+                const secondaryOffset = secondaryCurve * Math.sin(t * Math.PI * 1.5) * (1 - t * 0.5);
+
+                // التفاف تدريجي
+                const twistOffset = twistAmount * Math.sin(t * Math.PI) * length * 0.1;
+
+                // تعرج طبيعي (أكثر في المنتصف)
+                const wiggleFactor = Math.sin(t * Math.PI) * 0.8 + 0.2;
+                const wiggleOffset = Math.sin(t * 10 + angle * 2) * wiggle * length * 0.08 * wiggleFactor;
+
+                // حساب الموقع مع كل التأثيرات
+                const totalCurve = (curveOffset + secondaryOffset) * length * 0.35;
+                let x = startX + Math.cos(angle) * length * t
+                    + Math.sin(angle) * totalCurve
+                    + wiggleOffset * Math.sin(angle)
+                    + twistOffset * Math.cos(angle + Math.PI / 2);
+                let y = startY - Math.sin(angle) * length * t
+                    + Math.cos(angle) * totalCurve
+                    - wiggleOffset * Math.cos(angle)
+                    - twistOffset * Math.sin(angle + Math.PI / 2);
+
+                // سحب خفيف نحو مركز الغلاف مع رفع بسيط لمنع الترهل للأسفل
+                if (treeCenter && treeRadius) {
+                    const pull = Math.sin(t * Math.PI) * 0.18;
+                    const dxCenter = treeCenter.x - x;
+                    const dyCenter = treeCenter.y - y;
+
+                    x += dxCenter * 0.08 * pull;
+                    y += dyCenter * 0.08 * pull;
+                    y -= pull * 6; // دفعة للأعلى لنعومة وانحناء أفضل
+
+                    // إبقاء النقاط داخل الغلاف الدائري
+                    const distCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter);
+                    const maxAllowed = treeRadius * 0.98;
+                    if (distCenter > maxAllowed && distCenter > 0) {
+                        const pushBack = (distCenter - maxAllowed) / distCenter;
+                        x -= dxCenter * pushBack;
+                        y -= dyCenter * pushBack;
+                    }
+                }
+
+                // سماكة متناقصة بشكل طبيعي (أسرع في النهاية)
+                const taperCurve = Math.pow(t, 0.7);
+                const currentWidth = startWidth - (startWidth - endWidth) * taperCurve;
+
+                points.push({ x, y, width: currentWidth, t });
+            }
+
+            if (!drawIt) return { points, angle };
+
+            // رسم الغصن بمنحنيات ناعمة
+            ctx.beginPath();
+
+            // الجانب الأول (باستخدام منحنيات)
+            const firstSide = [];
+            const secondSide = [];
+
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                // حساب الاتجاه المحلي للغصن
+                const prevP = points[Math.max(0, i - 1)];
+                const nextP = points[Math.min(points.length - 1, i + 1)];
+                const localAngle = Math.atan2(-(nextP.y - prevP.y), nextP.x - prevP.x);
+
+                firstSide.push({
+                    x: p.x + Math.sin(localAngle) * p.width / 2,
+                    y: p.y + Math.cos(localAngle) * p.width / 2
+                });
+                secondSide.push({
+                    x: p.x - Math.sin(localAngle) * p.width / 2,
+                    y: p.y - Math.cos(localAngle) * p.width / 2
+                });
+            }
+
+            // رسم الشكل بمنحنيات ناعمة
+            ctx.moveTo(firstSide[0].x, firstSide[0].y);
+            for (let i = 1; i < firstSide.length; i++) {
+                const prev = firstSide[i - 1];
+                const curr = firstSide[i];
+                const cpX = (prev.x + curr.x) / 2;
+                const cpY = (prev.y + curr.y) / 2;
+                ctx.quadraticCurveTo(prev.x, prev.y, cpX, cpY);
+            }
+            ctx.lineTo(firstSide[firstSide.length - 1].x, firstSide[firstSide.length - 1].y);
+
+            // طرف الغصن (دائري)
+            const lastP = points[points.length - 1];
+            const lastAngle = Math.atan2(
+                -(points[points.length - 1].y - points[points.length - 2].y),
+                points[points.length - 1].x - points[points.length - 2].x
+            );
+            ctx.arc(lastP.x, lastP.y, Math.max(lastP.width / 2, 1), lastAngle - Math.PI / 2, lastAngle + Math.PI / 2);
+
+            // الجانب الثاني (بالعكس)
+            for (let i = secondSide.length - 1; i > 0; i--) {
+                const prev = secondSide[i];
+                const curr = secondSide[i - 1];
+                const cpX = (prev.x + curr.x) / 2;
+                const cpY = (prev.y + curr.y) / 2;
+                ctx.quadraticCurveTo(prev.x, prev.y, cpX, cpY);
+            }
+            ctx.lineTo(secondSide[0].x, secondSide[0].y);
+            ctx.closePath();
+
+            // تدرج لوني محسن
+            const gradient = ctx.createLinearGradient(startX, startY, lastP.x, lastP.y);
+            gradient.addColorStop(0, config.branchColor);
+            gradient.addColorStop(0.3, config.trunkColor);
+            gradient.addColorStop(0.7, config.branchColor);
+            gradient.addColorStop(1, config.branchShadow);
+            gradient.addColorStop(1, config.branchShadow);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.strokeStyle = config.branchShadow;
+            ctx.lineWidth = 0.5;
+            ctx.globalAlpha = 0.3;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            return { points, angle };
+        }
+
+        // رسم ورقة طبيعية واحدة مع عرق متصل بالغصن
+        function drawLeaf(x, y, size, angle, leafSide = 1, name = "") {
+            if (!config.showLeaves) return;
+
+            const w = size * 0.7;
+            const h = size;
+
+            // طول العرق (الساق)
+            const stemLength = size * 0.4;
+            const stemWidth = Math.max(1.5, size * 0.08);
+
+            // زاوية الورقة عمودية على الغصن
+            const leafAngle = angle + leafSide * (Math.PI / 2);
+
+            // نقطة نهاية العرق (حيث تبدأ الورقة)
+            const leafTipX = x + Math.cos(leafAngle) * stemLength;
+            const leafTipY = y - Math.sin(leafAngle) * stemLength;
+
+            // رسم العرق (الساق) من الغصن إلى الورقة
+            ctx.save();
+            const gradient = ctx.createLinearGradient(x, y, leafTipX, leafTipY);
+            gradient.addColorStop(0, config.branchColor);
+            gradient.addColorStop(0.5, '#4a7c23');
+            gradient.addColorStop(1, config.leafVeinColor);
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = stemWidth;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(leafTipX, leafTipY);
+            ctx.stroke();
+            ctx.restore();
+
+            // رسم الورقة
+            ctx.save();
+            ctx.translate(leafTipX, leafTipY);
+            ctx.rotate(-leafAngle + Math.PI / 2);
+
+            if (leafSide === -1) {
+                ctx.scale(-1, 1);
+            }
+
+            ctx.translate(0, -h / 2);
+
+            // رسم شكل الورقة الطبيعية
+            ctx.beginPath();
+            ctx.moveTo(0, -h / 2);
+            ctx.bezierCurveTo(w * 0.4, -h * 0.35, w * 0.5, -h * 0.1, w * 0.45, h * 0.1);
+            ctx.bezierCurveTo(w * 0.4, h * 0.25, w * 0.25, h * 0.4, 0, h / 2);
+            ctx.bezierCurveTo(-w * 0.25, h * 0.4, -w * 0.4, h * 0.25, -w * 0.45, h * 0.1);
+            ctx.bezierCurveTo(-w * 0.5, -h * 0.1, -w * 0.4, -h * 0.35, 0, -h / 2);
+            ctx.closePath();
+
+            ctx.fillStyle = config.leafColor;
+            ctx.fill();
+            ctx.strokeStyle = config.leafVeinColor;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // رسم العرق الرئيسي داخل الورقة
+            ctx.strokeStyle = config.leafVeinColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -h / 2 + 2);
+            ctx.lineTo(0, h / 2);
+            ctx.stroke();
+
+            // عروق فرعية
+            ctx.lineWidth = 0.5;
+            for (let v = 1; v <= 3; v++) {
+                const vy = -h / 2 + (h / 4) * v;
+                ctx.beginPath();
+                ctx.moveTo(0, vy);
+                ctx.quadraticCurveTo(w * 0.2, vy - h * 0.05, w * 0.3, vy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, vy);
+                ctx.quadraticCurveTo(-w * 0.2, vy - h * 0.05, -w * 0.3, vy);
+                ctx.stroke();
+            }
+
+            // كتابة الاسم على الورقة بشكل طولي (تدوير النص)
+            if (name) {
+                ctx.save();
+                if (leafSide === -1) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = `bold ${Math.max(6, size * 0.22)}px 'Tajawal', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 2;
+
+                // تدوير النص 90 درجة ليكون طولياً
+                ctx.rotate(Math.PI / 2);
+                ctx.fillText(name, 0, 0);
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        // ===== وضع شجرة العائلة (مطابق لمنطق tree_simple_latest.html) =====
+        function drawFamilyTrunk(scale, offsetX, offsetY, heightOverride) {
+            const centerX = canvas.width / 2 + offsetX;
+            const groundY = canvas.height - 40 + offsetY;
+
+            const trunkLength = (heightOverride || familyConfig.trunkLength) * scale * zoom;
+            const baseWidth = (familyConfig.trunkBaseWidth * 1.5) * scale * zoom;
+            const topWidth = (familyConfig.trunkTopWidth * 1.5) * scale * zoom;
+
+            const grd = ctx.createLinearGradient(centerX - baseWidth / 2, groundY, centerX + baseWidth / 2, groundY);
+            grd.addColorStop(0, "#3E2723");
+            grd.addColorStop(0.2, "#5D4037");
+            grd.addColorStop(0.5, "#795548");
+            grd.addColorStop(0.8, "#5D4037");
+            grd.addColorStop(1, "#3E2723");
+
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.moveTo(centerX - baseWidth / 2, groundY);
+            ctx.quadraticCurveTo(centerX - baseWidth * 0.4, groundY - trunkLength * 0.5, centerX - topWidth / 2, groundY - trunkLength);
+            ctx.lineTo(centerX + topWidth / 2, groundY - trunkLength);
+            ctx.quadraticCurveTo(centerX + baseWidth * 0.4, groundY - trunkLength * 0.5, centerX + baseWidth / 2, groundY);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = "rgba(0,0,0,0.1)";
+            ctx.lineWidth = 2 * zoom;
+            for (let i = 0; i < 8; i++) {
+                const xOffset = (Math.random() - 0.5) * baseWidth * 0.6;
+                ctx.beginPath();
+                ctx.moveTo(centerX + xOffset, groundY);
+                ctx.quadraticCurveTo(centerX + xOffset * 0.8, groundY - trunkLength * 0.5, centerX + xOffset * 0.6, groundY - trunkLength);
+                ctx.stroke();
+            }
+
+            return {
+                base: { x: centerX, y: groundY - 30 },
+                top: { x: centerX, y: groundY - trunkLength },
+                length: trunkLength
+            };
+        }
+
+        function drawFamilyTrunkConnection(x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineWidth = 15 * zoom;
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.stroke();
+        }
+
+        function drawFamilyOvalLabel(x, y, name, isGold) {
+            const w = 80 * zoom;
+            const h = 40 * zoom;
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fill();
+
+            ctx.lineWidth = 3;
+            if (isGold) {
+                ctx.strokeStyle = "#FFD700";
+                ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
+                ctx.shadowBlur = 10;
+            } else {
+                ctx.strokeStyle = "#8D6E63";
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = "#000000";
+            ctx.font = `bold ${14 * zoom}px Tajawal`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(name, 0, 0);
+
+            ctx.restore();
+        }
+
+        function drawFamilyCircleLabel(x, y, name, scale = 1, generation = 1) {
+            const size = 50 * zoom * scale;
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 4;
+
+            const gradient = ctx.createRadialGradient(-size / 5, -size / 5, size / 10, 0, 0, size / 2);
+
+            switch (generation) {
+                case 1:
+                    gradient.addColorStop(0, "#EF5350");
+                    gradient.addColorStop(1, "#B71C1C");
+                    ctx.strokeStyle = "#FFEBEE";
+                    break;
+                case 2:
+                    gradient.addColorStop(0, "#4FC3F7");
+                    gradient.addColorStop(1, "#0277BD");
+                    ctx.strokeStyle = "#E1F5FE";
+                    break;
+                case 3:
+                    gradient.addColorStop(0, "#FFD700");
+                    gradient.addColorStop(1, "#B8860B");
+                    ctx.strokeStyle = "#FFF8DC";
+                    break;
+                case 4:
+                    gradient.addColorStop(0, "#BA68C8");
+                    gradient.addColorStop(1, "#6A1B9A");
+                    ctx.strokeStyle = "#F3E5F5";
+                    break;
+                default:
+                    gradient.addColorStop(0, "#FF8A65");
+                    gradient.addColorStop(1, "#D84315");
+                    ctx.strokeStyle = "#FBE9E7";
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.lineWidth = generation === 1 ? 4 : 2;
+            ctx.stroke();
+
+            ctx.shadowColor = "transparent";
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = `bold ${size * 0.35}px Tajawal`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(name, 0, 0);
+
+            ctx.restore();
+        }
+
+        function calculateFamilyLayout(currentLevelNodes, origin, layoutConfig, startDepth) {
+            if (!currentLevelNodes || currentLevelNodes.length === 0) {
+                return { layoutNodes: [], maxDepth: startDepth };
+            }
+
+            let maxTreeDepth = startDepth;
+            function calculateSubtreeLeaves(node, depth) {
+                maxTreeDepth = Math.max(maxTreeDepth, depth);
+                if (!node.children || node.children.length === 0) {
+                    node._subtreeLeaves = 1;
+                    return 1;
+                }
+                let total = 0;
+                node.children.forEach(child => {
+                    total += calculateSubtreeLeaves(child, depth + 1);
+                });
+                node._subtreeLeaves = Math.max(1, total);
+                return node._subtreeLeaves;
+            }
+
+            currentLevelNodes.forEach(node => calculateSubtreeLeaves(node, startDepth));
+
+            const layoutNodes = [];
+            let cursor = 0;
+            const topLevelGap = 0.4;
+
+            function assignUnits(node, depth) {
+                const hasChildren = node.children && node.children.length > 0;
+                let xUnit;
+
+                if (hasChildren) {
+                    const startCursor = cursor;
+                    node.children.forEach(child => assignUnits(child, depth + 1));
+                    xUnit = (startCursor + cursor) / 2;
+                } else {
+                    xUnit = cursor + 0.5;
+                    cursor += 1;
+                }
+
+                node.layout = { xUnit, depth };
+                if (!layoutNodes[depth]) layoutNodes[depth] = [];
+                layoutNodes[depth].push(node);
+            }
+
+            currentLevelNodes.forEach((node, idx) => {
+                assignUnits(node, startDepth);
+                if (idx < currentLevelNodes.length - 1) cursor += topLevelGap;
+            });
+
+            const totalUnits = Math.max(1, cursor);
+            const levelsCount = Math.max(1, maxTreeDepth - startDepth + 1);
+
+            const horizontalPadding = 70 * layoutConfig.scale;
+            const halfWidthFromCanvas = Math.min(
+                canvas.width * 0.46,
+                origin.x - horizontalPadding,
+                (canvas.width - origin.x) - horizontalPadding
+            );
+            const halfWidth = Math.max(170 * layoutConfig.scale, halfWidthFromCanvas);
+            const usableWidth = halfWidth * 2;
+
+            const topPadding = 80 * layoutConfig.scale;
+            const maxCrownHeight = Math.min(canvas.height * 0.62, origin.y - topPadding);
+            const crownHeight = Math.max(170 * layoutConfig.scale, maxCrownHeight);
+            const levelSpacing = crownHeight / levelsCount;
+
+            for (let depth = startDepth; depth <= maxTreeDepth; depth++) {
+                const nodes = layoutNodes[depth];
+                if (!nodes) continue;
+
+                nodes.forEach(node => {
+                    const normalized = node.layout.xUnit / totalUnits;
+                    node.layout.x = origin.x - halfWidth + normalized * usableWidth;
+                    node.layout.y = origin.y - ((depth - startDepth + 1) * levelSpacing);
+                    node.layout.depth = depth;
+                });
+            }
+
+            return {
+                layoutNodes,
+                maxDepth: maxTreeDepth,
+                bounds: { minX: origin.x - halfWidth, maxX: origin.x + halfWidth }
+            };
+        }
+
+        function adjustFamilyPositions(layoutData, minSpacing, origin) {
+            const startD = parseInt(Object.keys(layoutData.layoutNodes)[0] || 0, 10);
+            const bounds = layoutData.bounds || { minX: -Infinity, maxX: Infinity };
+
+            for (let d = startD; d <= layoutData.maxDepth; d++) {
+                const nodes = layoutData.layoutNodes[d];
+                if (!nodes || nodes.length < 2) continue;
+
+                nodes.sort((a, b) => a.layout.x - b.layout.x);
+
+                for (let i = 1; i < nodes.length; i++) {
+                    const prev = nodes[i - 1];
+                    const curr = nodes[i];
+                    const dynamicSpacing = Math.min(minSpacing, (bounds.maxX - bounds.minX) / Math.max(1, nodes.length - 1));
+                    const minAllowedX = prev.layout.x + dynamicSpacing;
+                    if (curr.layout.x < minAllowedX) {
+                        curr.layout.x = minAllowedX;
+                    }
+                }
+
+                const firstX = nodes[0].layout.x;
+                const lastX = nodes[nodes.length - 1].layout.x;
+                const levelCenter = (firstX + lastX) / 2;
+                let shift = origin.x - levelCenter;
+
+                const shiftedMin = firstX + shift;
+                const shiftedMax = lastX + shift;
+                if (shiftedMin < bounds.minX) shift += (bounds.minX - shiftedMin);
+                if (shiftedMax > bounds.maxX) shift -= (shiftedMax - bounds.maxX);
+
+                nodes.forEach(node => {
+                    node.layout.x += shift;
+                    node.layout.x = Math.max(bounds.minX, Math.min(bounds.maxX, node.layout.x));
+                });
+            }
+        }
+
+        function renderFamilyLayout(layoutData, origin, layoutConfig) {
+            function getBezierPoint(t, p0, p1, p2, p3) {
+                const cX = 3 * (p1.x - p0.x);
+                const bX = 3 * (p2.x - p1.x) - cX;
+                const aX = p3.x - p0.x - cX - bX;
+                const cY = 3 * (p1.y - p0.y);
+                const bY = 3 * (p2.y - p1.y) - cY;
+                const aY = p3.y - p0.y - cY - bY;
+                const x = (aX * Math.pow(t, 3)) + (bX * Math.pow(t, 2)) + (cX * t) + p0.x;
+                const y = (aY * Math.pow(t, 3)) + (bY * Math.pow(t, 2)) + (cY * t) + p0.y;
+                const dx = 3 * aX * t * t + 2 * bX * t + cX;
+                const dy = 3 * aY * t * t + 2 * bY * t + cY;
+                return { x, y, angle: Math.atan2(dy, dx) };
+            }
+
+            function drawFamilyConnection(x1, y1, x2, y2, angle2, depth) {
+                const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                const baseThickness = 11 * (layoutConfig.scale || 1);
+                const width = Math.max(2, baseThickness * Math.pow(0.78, depth - 2));
+                const rise = Math.max(18 * zoom, Math.abs(y1 - y2) * 0.55);
+
+                const p0 = { x: x1, y: y1 };
+                const p1 = { x: x1, y: y1 - rise };
+                const p2 = { x: x2, y: y2 + rise * 0.35 };
+                const p3 = { x: x2, y: y2 };
+
+                ctx.lineWidth = width;
+                ctx.strokeStyle = "#5D4037";
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+                ctx.stroke();
+
+                ctx.lineWidth = Math.max(1, width * 0.18);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+                ctx.stroke();
+
+                if (depth >= 2 && config.showLeaves) {
+                    const leafCount = Math.max(1, Math.min(4, Math.floor(dist / (110 * zoom))));
+                    const baseLeafSize = familyConfig.leafSize * zoom * 0.55;
+                    for (let k = 1; k <= leafCount; k++) {
+                        const t = k / (leafCount + 1);
+                        const p = getBezierPoint(t, p0, p1, p2, p3);
+                        const leafSide = (k % 2 === 0) ? 1 : -1;
+                        drawLeaf(p.x, p.y, baseLeafSize, p.angle, leafSide, "");
+                    }
+                }
+            }
+
+            const levels = Object.keys(layoutData.layoutNodes).map(Number).sort((a, b) => a - b);
+
+            if (levels.length > 0) {
+                layoutData.layoutNodes[levels[0]].forEach((node, i) => {
+                    drawFamilyConnection(origin.x, origin.y, node.layout.x, node.layout.y, node.layout.angle, node.layout.depth, i);
+                    drawSubConnections(node);
+                });
+            }
+
+            function drawSubConnections(node) {
+                if (!node.children) return;
+                node.children.forEach((child, i) => {
+                    if (child.layout) {
+                        drawFamilyConnection(node.layout.x, node.layout.y, child.layout.x, child.layout.y, child.layout.angle, child.layout.depth, i);
+                        drawSubConnections(child);
+                    }
+                });
+            }
+
+            levels.forEach(level => {
+                layoutData.layoutNodes[level].forEach(node => {
+                    const scaleFactor = Math.max(0.8, 1.2 - (node.layout.depth * 0.1));
+                    drawFamilyCircleLabel(node.layout.x, node.layout.y, node.name, scaleFactor, node.generation || node.layout.depth);
+                });
+            });
+        }
+
+        function drawFamilyDataTree(roots, scale, offsetX, offsetY) {
+            if (!roots || roots.length === 0) return;
+
+            const trunkInfo = drawFamilyTrunk(scale, offsetX, offsetY, familyConfig.trunkLength * 1.5);
+            const trunkBase = trunkInfo.base;
+            const trunkTop = trunkInfo.top;
+
+            const root = roots[0];
+            root.layout = { x: trunkBase.x, y: trunkBase.y, depth: 1 };
+
+            if (root.children && root.children.length > 0) {
+                const generation2Origin = { x: trunkTop.x, y: trunkTop.y };
+                drawFamilyTrunkConnection(trunkBase.x, trunkBase.y, trunkTop.x, trunkTop.y);
+                drawFamilyOvalLabel(trunkBase.x, trunkBase.y, root.name, true);
+
+                const layoutConfig = { scale: scale * zoom };
+
+                const layoutData = calculateFamilyLayout(root.children, generation2Origin, layoutConfig, 2);
+                const minNodeSpacing = 60 * layoutConfig.scale;
+                adjustFamilyPositions(layoutData, minNodeSpacing, generation2Origin);
+                renderFamilyLayout(layoutData, generation2Origin, layoutConfig);
+            } else {
+                drawFamilyOvalLabel(trunkBase.x, trunkBase.y, root.name, true);
+            }
+        }
+
+        // مصفوفة لتخزين مواقع الأوراق لتجنب التراكب
+        let leafPositions = [];
+
+        // مصفوفة لتخزين الأوراق المراد رسمها لاحقاً
+        let leavesToDraw = [];
+
+        // التحقق من تراكب الأوراق
+        function isLeafOverlapping(x, y, size) {
+            const minDist = size * 0.95; // مسافة أوسع لمنع تراكب الأوراق
+            const minDistSq = minDist * minDist;
+            for (const pos of leafPositions) {
+                const dx = x - pos.x;
+                const dy = y - pos.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < minDistSq) return true;
+            }
+            return false;
+        }
+
+        // جمع الأوراق على غصن (بدون رسم)
+        function collectLeavesOnBranch(branchPoints, branchAngle, seed) {
+            if (!config.showLeaves || config.leavesPerBranch < 1) return;
+
+            const startIdx = Math.floor(branchPoints.length * config.leafStart);
+            const availablePoints = branchPoints.length - startIdx;
+
+            if (availablePoints < 1) return;
+
+            // توزيع الأوراق بشكل متساوي على طول الغصن
+            for (let i = 0; i < config.leavesPerBranch; i++) {
+                const t = config.leavesPerBranch > 1 ? i / (config.leavesPerBranch - 1) : 0.5;
+                const pointIdx = Math.floor(startIdx + availablePoints * t);
+                const point = branchPoints[Math.min(pointIdx, branchPoints.length - 1)];
+
+                // حساب اتجاه الغصن عند هذه النقطة
+                const nextIdx = Math.min(pointIdx + 1, branchPoints.length - 1);
+                const prevIdx = Math.max(pointIdx - 1, 0);
+                const dx = branchPoints[nextIdx].x - branchPoints[prevIdx].x;
+                const dy = branchPoints[nextIdx].y - branchPoints[prevIdx].y;
+                const localAngle = Math.atan2(-dy, dx);
+
+                // الأوراق تتناوب يمين ويسار
+                const preferredSide = (i + seed) % 2 === 0 ? 1 : -1;
+
+                // حجم متنوع
+                const sizeVar = 1 - config.leafSizeVariation + Math.random() * config.leafSizeVariation * 2;
+                const leafSize = config.leafSize * sizeVar * (1 - t * 0.3);
+
+                // مرشحات المواضع: إزاحة طفيفة قريبة من الغصن لتفادي التداخل بدون ابتعاد
+                const normalOffsets = [0, 0.12].map(v => v * leafSize);
+                const tangentOffsets = [-0.3, -0.15, 0, 0.15, 0.3].map(v => v * leafSize);
+
+                let chosen = null;
+
+                for (const side of [preferredSide, -preferredSide]) {
+                    const normalAngle = localAngle + side * (Math.PI / 2);
+
+                    for (const nOff of normalOffsets) {
+                        for (const tOff of tangentOffsets) {
+                            let leafX = point.x + Math.cos(normalAngle) * nOff + Math.cos(localAngle) * tOff;
+                            let leafY = point.y - Math.sin(normalAngle) * nOff - Math.sin(localAngle) * tOff;
+
+                            const distFromBranch = Math.hypot(leafX - point.x, leafY - point.y);
+                            if (distFromBranch > leafSize * 0.35) continue;
+
+                            if (!isInsideTreeArea(leafX, leafY)) continue;
+                            if (isLeafOverlapping(leafX, leafY, leafSize)) continue;
+
+                            chosen = { x: leafX, y: leafY, side };
+                            break;
+                        }
+                        if (chosen) break;
+                    }
+                    if (chosen) break;
+                }
+
+                // إذا لم نجد موضعاً مناسباً، نتجاوز الورقة لتفادي التداخل
+                if (!chosen) continue;
+
+                leafPositions.push({ x: chosen.x, y: chosen.y, size: leafSize });
+                leavesToDraw.push({
+                    x: chosen.x, y: chosen.y, size: leafSize,
+                    angle: localAngle, side: chosen.side, name: getRandomName()
+                });
+            }
+        }
+
+        // رسم جميع الأوراق المجمعة وتحديث العداد
+        function drawAllLeaves() {
+            for (const leaf of leavesToDraw) {
+                drawLeaf(leaf.x, leaf.y, leaf.size, leaf.angle, leaf.side, leaf.name);
+            }
+            // تحديث عداد الأوراق
+            document.getElementById('leaf-count').textContent = leavesToDraw.length;
+        }
+
+        // مصفوفة لتخزين مناطق الأغصان المرسومة لتجنب التراكب
+        let drawnBranchAreas = [];
+
+        // مركز الشجرة ونصف قطرها للتحقق من المساحة
+        let treeCenter = { x: 0, y: 0 };
+        let treeRadius = 300;
+
+        // التحقق من تراكب نقطة مع الأغصان الأخرى
+        function isPointOverlapping(x, y, minDist = 30) {
+            for (const area of drawnBranchAreas) {
+                const areaStep = area.length > 18 ? 2 : 1;
+                for (let j = 0; j < area.length; j += areaStep) {
+                    const ap = area[j];
+                    const dx = x - ap.x;
+                    const dy = y - ap.y;
+                    const distLimit = minDist + (ap.width || 10);
+                    if ((dx * dx + dy * dy) < (distLimit * distLimit)) return true;
+                }
+            }
+            return false;
+        }
+
+        // التحقق من تراكب غصن كامل مع الأغصان الأخرى
+        function isBranchAreaOverlapping(points, minDist = 35) {
+            let overlapCount = 0;
+            const checkStep = Math.max(2, Math.floor(points.length / 4));
+
+            for (let i = 0; i < points.length; i += checkStep) {
+                const p = points[i];
+                if (isPointOverlapping(p.x, p.y, minDist)) {
+                    overlapCount++;
+                    if (overlapCount > 1) return true;
+                }
+            }
+
+            // السماح بتراكب بسيط عند البداية فقط
+            return false;
+        }
+
+        // التحقق من أن النقطة داخل مساحة الشجرة (الغلاف)
+        function isInsideTreeArea(x, y) {
+            const dx = x - treeCenter.x;
+            const dy = y - treeCenter.y;
+            const maxRadius = treeRadius * 1.1;
+            return (dx * dx + dy * dy) <= (maxRadius * maxRadius) && y <= treeCenter.y + treeRadius * 0.3;
+        }
+
+        // حساب درجة جودة موضع الغصن (أعلى = أفضل)
+        function calculateBranchScore(points, startX) {
+            if (points.length === 0) return -1000;
+
+            const endPoint = points[points.length - 1];
+
+            // التحقق من أن النهاية داخل مساحة الشجرة
+            if (!isInsideTreeArea(endPoint.x, endPoint.y)) return -500;
+
+            // التحقق من عدم التراكب
+            if (isBranchAreaOverlapping(points, 22)) return -100;
+
+            // حساب النقاط
+            let score = 0;
+
+            // مكافأة على الطول
+            const dxStart = endPoint.x - points[0].x;
+            const dyStart = endPoint.y - points[0].y;
+            const length = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
+            score += length * 0.5;
+
+            // مكافأة على الابتعاد عن المركز أفقياً (ملء الجوانب)
+            score += Math.abs(endPoint.x - treeCenter.x) * 0.3;
+
+            // مكافأة على الارتفاع (ملء الأعلى)
+            score += (treeCenter.y - endPoint.y) * 0.2;
+
+            // قرب النهاية من نصف قطر الغلاف المثالي لملء الحواف دون الخروج
+            const dxC = endPoint.x - treeCenter.x;
+            const dyC = endPoint.y - treeCenter.y;
+            const distCenter = Math.sqrt(dxC * dxC + dyC * dyC);
+            const idealRadius = treeRadius * 0.9;
+            const radiusDiff = Math.abs(distCenter - idealRadius);
+            score += Math.max(-150, (1 - Math.min(1, radiusDiff / idealRadius)) * 220);
+
+            // منع الهبوط أسفل الغلاف
+            const lowerLimit = treeCenter.y + treeRadius * 0.15;
+            if (endPoint.y > lowerLimit) {
+                score -= (endPoint.y - lowerLimit) * 3;
+            }
+
+            // مكافأة على المسافة عن أقرب غصن لتفادي التزاحم
+            let minNeighborSq = Infinity;
+            let closePenalty = 0;
+            for (const area of drawnBranchAreas) {
+                for (let j = 0; j < area.length; j += 4) {
+                    const ap = area[j];
+                    const dx = endPoint.x - ap.x;
+                    const dy = endPoint.y - ap.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < minNeighborSq) minNeighborSq = distSq;
+                    if (distSq < 2500) {
+                        const dist = Math.sqrt(distSq);
+                        closePenalty += (50 - dist) * 0.45;
+                    }
+                }
+            }
+            if (minNeighborSq < Infinity) {
+                const minNeighbor = Math.sqrt(minNeighborSq);
+                score += Math.min(minNeighbor, 140) * 0.5;
+                score -= closePenalty;
+            }
+
+            // عقوبة نقاط المسار الخارجة عن الغلاف
+            const sampleStep = Math.max(2, Math.floor(points.length / 5));
+            for (let i = 0; i < points.length; i += sampleStep) {
+                if (!isInsideTreeArea(points[i].x, points[i].y)) {
+                    score -= 35;
+                }
+            }
+
+            return score;
+        }
+
+        // حساب مساحة الفراغ حول الغصن لملء التاج وتجنب التزاحم
+        function calculateBranchSpaceScore(points) {
+            if (drawnBranchAreas.length === 0) return 0;
+
+            let total = 0;
+            let samples = 0;
+            const sampleStep = Math.max(2, Math.floor(points.length / 4));
+
+            for (let i = 0; i < points.length; i += sampleStep) {
+                const p = points[i];
+                let nearestSq = Infinity;
+
+                for (const area of drawnBranchAreas) {
+                    for (let j = 0; j < area.length; j += 4) {
+                        const ap = area[j];
+                        const dx = p.x - ap.x;
+                        const dy = p.y - ap.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < nearestSq) nearestSq = distSq;
+                    }
+                }
+
+                if (nearestSq < Infinity) {
+                    const nearest = Math.sqrt(nearestSq);
+                    total += Math.min(nearest, 120);
+                    if (nearest < 35) total -= (35 - nearest) * 1.5;
+                    samples++;
+                }
+            }
+
+            return samples ? total / samples : 0;
+        }
+
+        // إيجاد أفضل تكوين للغصن الفرعي
+        function findBestSubBranchConfig(parentPoint, localAngle, side, baseLength, baseWidth) {
+            const spreadRad = (config.branch2Spread / 2) * Math.PI / 180;
+
+            let bestConfig = {
+                angle: localAngle + side * spreadRad,
+                curve: config.branch2Curve * side,
+                length: baseLength,
+                curvePos: 0.5,
+                score: -1000
+            };
+
+            // تجربة تكوينات مختلفة
+            const angleSteps = [-0.35, -0.2, -0.1, 0, 0.1, 0.2, 0.35];
+            const curveSteps = [0.5, 0.8, 1, 1.3, 1.7];
+            const lengthSteps = [0.7, 0.9, 1.1, 1.4, 1.8];
+            const curvePosSteps = [0.4, 0.6];
+
+            for (const aStep of angleSteps) {
+                const testAngle = localAngle + side * spreadRad + aStep * side;
+
+                for (const cStep of curveSteps) {
+                    // تجربة منحنيين: مع اتجاه الجانب وعكسه لتوليد التفاف لأعلى/لأسفل
+                    const candidateDirs = [side, -side];
+                    for (const dir of candidateDirs) {
+                        const testCurve = config.branch2Curve * dir * cStep;
+
+                        for (const pStep of curvePosSteps) {
+                            for (const lStep of lengthSteps) {
+                                const testLength = baseLength * lStep;
+
+                                // حساب نقاط الغصن المحتملة
+                                const testData = drawBranch(
+                                    parentPoint.x, parentPoint.y,
+                                    testLength, testAngle, baseWidth,
+                                    testCurve, pStep, config.branch2Wiggle, config.branch2Taper,
+                                    false
+                                );
+
+                                // تجنب الاصطدام الواضح مع الأغصان
+                                if (isBranchAreaOverlapping(testData.points, 25)) continue;
+
+                                // حساب النقاط
+                                const baseScore = calculateBranchScore(testData.points, parentPoint.x);
+                                if (baseScore < bestConfig.score - 120) continue;
+                                const spaceScore = calculateBranchSpaceScore(testData.points);
+                                const score = baseScore + spaceScore * 0.7;
+
+                                if (score > bestConfig.score) {
+                                    bestConfig = {
+                                        angle: testAngle,
+                                        curve: testCurve,
+                                        length: testLength,
+                                        curvePos: pStep,
+                                        score: score
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestConfig;
+        }
+
+
+        // رسم الأغصان الفرعية المنبثقة من غصن رئيسي بطريقة ذكية
+        function drawSubBranches(parentPoints, parentAngle, branchIndex) {
+            if (!config.showBranches2 || config.branch2Count < 1) return;
+
+            const startIdx = Math.floor(parentPoints.length * config.branch2Start);
+            const endIdx = Math.floor(parentPoints.length * config.branch2End);
+            const availablePoints = endIdx - startIdx;
+
+            if (availablePoints < 1) return;
+
+            const planned = [];
+
+            for (let i = 0; i < config.branch2Count; i++) {
+                // توزيع الفروع على طول الغصن الرئيسي
+                const t = config.branch2Count > 1 ? i / (config.branch2Count - 1) : 0.5;
+                const pointIdx = Math.floor(startIdx + availablePoints * t);
+                const parentPoint = parentPoints[Math.min(pointIdx, parentPoints.length - 1)];
+
+                // حساب اتجاه الغصن الرئيسي عند هذه النقطة
+                const nextIdx = Math.min(pointIdx + 1, parentPoints.length - 1);
+                const prevIdx = Math.max(pointIdx - 1, 0);
+                const dx = parentPoints[nextIdx].x - parentPoints[prevIdx].x;
+                const dy = parentPoints[nextIdx].y - parentPoints[prevIdx].y;
+                const localAngle = Math.atan2(-dy, dx);
+
+                // الفروع تتناوب يمين ويسار
+                const side = (i + branchIndex) % 2 === 0 ? 1 : -1;
+
+                // سماكة الفرع
+                const subWidth = parentPoint.width * config.branch2Width;
+
+                // إيجاد أفضل تكوين للغصن
+                const bestConfig = findBestSubBranchConfig(
+                    parentPoint, localAngle, side,
+                    config.branch2Length, subWidth
+                );
+
+                if (bestConfig.score > -100) {
+                    planned.push({
+                        parentPoint,
+                        subWidth,
+                        bestConfig,
+                        seed: branchIndex * 10 + i
+                    });
+                }
+            }
+
+            // ترتيب حسب الجودة ثم الرسم ضمن القوانين لتفادي الاصطدام
+            planned.sort((a, b) => b.bestConfig.score - a.bestConfig.score);
+
+            for (const plan of planned) {
+                const preview = drawBranch(
+                    plan.parentPoint.x, plan.parentPoint.y,
+                    plan.bestConfig.length, plan.bestConfig.angle, plan.subWidth,
+                    plan.bestConfig.curve, plan.bestConfig.curvePos, config.branch2Wiggle, config.branch2Taper,
+                    false
+                );
+
+                if (isBranchAreaOverlapping(preview.points, 25)) continue;
+
+                const subBranchData = drawBranch(
+                    plan.parentPoint.x, plan.parentPoint.y,
+                    plan.bestConfig.length, plan.bestConfig.angle, plan.subWidth,
+                    plan.bestConfig.curve, plan.bestConfig.curvePos, config.branch2Wiggle, config.branch2Taper
+                );
+
+                // حفظ منطقة الغصن
+                drawnBranchAreas.push(subBranchData.points);
+
+                // جمع الأوراق على الغصن الفرعي
+                collectLeavesOnBranch(subBranchData.points, subBranchData.angle, plan.seed);
+
+                // رسم أغصان المستوى الثالث
+                drawLevel3Branches(subBranchData.points, subBranchData.angle, plan.seed);
+            }
+        }
+
+
+        // إيجاد أفضل تكوين للغصن من المستوى الثالث
+        function findBestLevel3BranchConfig(parentPoint, localAngle, side, baseLength, baseWidth) {
+            const spreadRad = (config.branch3Spread / 2) * Math.PI / 180;
+
+            let bestConfig = {
+                angle: localAngle + side * spreadRad,
+                curve: config.branch3Curve * side,
+                length: baseLength,
+                score: -1000
+            };
+
+            // تجربة تكوينات مختلفة
+            const angleSteps = [-0.3, -0.15, 0, 0.15, 0.3];
+            const curveSteps = [0.6, 0.9, 1.2, 1.6];
+            const lengthSteps = [0.8, 1, 1.25, 1.6];
+
+            for (const aStep of angleSteps) {
+                const testAngle = localAngle + side * spreadRad + aStep * side;
+
+                for (const cStep of curveSteps) {
+                    const candidateDirs = [side, -side];
+                    for (const dir of candidateDirs) {
+                        const testCurve = config.branch3Curve * dir * cStep;
+
+                        for (const lStep of lengthSteps) {
+                            const testLength = baseLength * lStep;
+
+                            const testData = drawBranch(
+                                parentPoint.x, parentPoint.y,
+                                testLength, testAngle, baseWidth,
+                                testCurve, 0.5, config.branch3Wiggle, config.branch3Taper,
+                                false
+                            );
+
+                            const score = calculateBranchScore(testData.points, parentPoint.x);
+
+                            if (score > bestConfig.score) {
+                                bestConfig = {
+                                    angle: testAngle,
+                                    curve: testCurve,
+                                    length: testLength,
+                                    score: score
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestConfig;
+        }
+
+        // رسم أغصان المستوى الثالث
+        function drawLevel3Branches(parentPoints, parentAngle, branchIndex) {
+            if (!config.showBranches3 || config.branch3Count < 1) return;
+
+            const startIdx = Math.floor(parentPoints.length * config.branch3Start);
+            const endIdx = Math.floor(parentPoints.length * config.branch3End);
+            const availablePoints = endIdx - startIdx;
+
+            if (availablePoints < 1) return;
+
+            for (let i = 0; i < config.branch3Count; i++) {
+                const t = config.branch3Count > 1 ? i / (config.branch3Count - 1) : 0.5;
+                const pointIdx = Math.floor(startIdx + availablePoints * t);
+                const parentPoint = parentPoints[Math.min(pointIdx, parentPoints.length - 1)];
+
+                const nextIdx = Math.min(pointIdx + 1, parentPoints.length - 1);
+                const prevIdx = Math.max(pointIdx - 1, 0);
+                const dx = parentPoints[nextIdx].x - parentPoints[prevIdx].x;
+                const dy = parentPoints[nextIdx].y - parentPoints[prevIdx].y;
+                const localAngle = Math.atan2(-dy, dx);
+
+                const side = (i + branchIndex) % 2 === 0 ? 1 : -1;
+                const subWidth = parentPoint.width * config.branch3Width;
+
+                const bestConfig = findBestLevel3BranchConfig(
+                    parentPoint, localAngle, side,
+                    config.branch3Length, subWidth
+                );
+
+                if (bestConfig.score > -100) {
+                    const level3BranchData = drawBranch(
+                        parentPoint.x, parentPoint.y,
+                        bestConfig.length, bestConfig.angle, subWidth,
+                        bestConfig.curve, 0.5, config.branch3Wiggle, config.branch3Taper
+                    );
+
+                    drawnBranchAreas.push(level3BranchData.points);
+                    collectLeavesOnBranch(level3BranchData.points, level3BranchData.angle, branchIndex * 100 + i);
+
+                    // رسم أغصان المستوى الرابع
+                    drawLevel4Branches(level3BranchData.points, level3BranchData.angle, branchIndex * 100 + i);
+                }
+            }
+        }
+
+        // إيجاد أفضل تكوين للغصن من المستوى الرابع
+        function findBestLevel4BranchConfig(parentPoint, localAngle, side, baseLength, baseWidth) {
+            const spreadRad = (config.branch4Spread / 2) * Math.PI / 180;
+
+            let bestConfig = {
+                angle: localAngle + side * spreadRad,
+                curve: config.branch4Curve * side,
+                length: baseLength,
+                score: -1000
+            };
+
+            // تجربة تكوينات مختلفة (أقل لأن الأغصان صغيرة)
+            const angleSteps = [-0.25, -0.1, 0, 0.1, 0.25];
+            const curveSteps = [0.7, 1, 1.3, 1.6];
+            const lengthSteps = [0.85, 1, 1.2];
+
+            for (const aStep of angleSteps) {
+                const testAngle = localAngle + side * spreadRad + aStep * side;
+
+                for (const cStep of curveSteps) {
+                    const candidateDirs = [side, -side];
+                    for (const dir of candidateDirs) {
+                        const testCurve = config.branch4Curve * dir * cStep;
+
+                        for (const lStep of lengthSteps) {
+                            const testLength = baseLength * lStep;
+
+                            const testData = drawBranch(
+                                parentPoint.x, parentPoint.y,
+                                testLength, testAngle, baseWidth,
+                                testCurve, 0.5, config.branch4Wiggle, config.branch4Taper,
+                                false
+                            );
+
+                            const score = calculateBranchScore(testData.points, parentPoint.x);
+
+                            if (score > bestConfig.score) {
+                                bestConfig = {
+                                    angle: testAngle,
+                                    curve: testCurve,
+                                    length: testLength,
+                                    score: score
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestConfig;
+        }
+
+        // رسم أغصان المستوى الرابع
+        function drawLevel4Branches(parentPoints, parentAngle, branchIndex) {
+            if (!config.showBranches4 || config.branch4Count < 1) return;
+
+            const startIdx = Math.floor(parentPoints.length * config.branch4Start);
+            const endIdx = Math.floor(parentPoints.length * config.branch4End);
+            const availablePoints = endIdx - startIdx;
+
+            if (availablePoints < 1) return;
+
+            for (let i = 0; i < config.branch4Count; i++) {
+                const t = config.branch4Count > 1 ? i / (config.branch4Count - 1) : 0.5;
+                const pointIdx = Math.floor(startIdx + availablePoints * t);
+                const parentPoint = parentPoints[Math.min(pointIdx, parentPoints.length - 1)];
+
+                const nextIdx = Math.min(pointIdx + 1, parentPoints.length - 1);
+                const prevIdx = Math.max(pointIdx - 1, 0);
+                const dx = parentPoints[nextIdx].x - parentPoints[prevIdx].x;
+                const dy = parentPoints[nextIdx].y - parentPoints[prevIdx].y;
+                const localAngle = Math.atan2(-dy, dx);
+
+                const side = (i + branchIndex) % 2 === 0 ? 1 : -1;
+                const subWidth = parentPoint.width * config.branch4Width;
+
+                const bestConfig = findBestLevel4BranchConfig(
+                    parentPoint, localAngle, side,
+                    config.branch4Length, subWidth
+                );
+
+                if (bestConfig.score > -100) {
+                    const level4BranchData = drawBranch(
+                        parentPoint.x, parentPoint.y,
+                        bestConfig.length, bestConfig.angle, subWidth,
+                        bestConfig.curve, 0.5, config.branch4Wiggle, config.branch4Taper
+                    );
+
+                    drawnBranchAreas.push(level4BranchData.points);
+                    collectLeavesOnBranch(level4BranchData.points, level4BranchData.angle, branchIndex * 1000 + i);
+                }
+            }
+        }
+
+        // إيجاد أفضل تكوين للغصن الرئيسي
+        function findBestMainBranchConfig(startX, startY, baseAngle, baseLength, baseWidth, side) {
+            let bestConfig = {
+                angle: baseAngle,
+                curve: config.branchCurve * (baseAngle > Math.PI / 2 ? 1 : -1),
+                length: baseLength,
+                score: -1000
+            };
+
+            const curveDir = baseAngle > Math.PI / 2 ? 1 : -1;
+
+            // تجربة تكوينات مختلفة
+            const angleSteps = [-0.15, -0.07, 0, 0.07, 0.15];
+            const curveSteps = [0.7, 1, 1.3, 1.7, 2.1];
+            const lengthSteps = [0.95, 1.05, 1.15, 1.25];
+
+            for (const aStep of angleSteps) {
+                const testAngle = baseAngle + aStep;
+
+                for (const cStep of curveSteps) {
+                    // تجربة الاتجاه الأساسي وعكسه للسماح بالتفاف لأعلى أو لأسفل حسب الحاجة
+                    const candidateDirs = [curveDir, -curveDir];
+                    for (const dir of candidateDirs) {
+                        const testCurve = config.branchCurve * dir * cStep;
+
+                        for (const lStep of lengthSteps) {
+                            const testLength = baseLength * lStep;
+
+                            const testData = drawBranch(
+                                startX, startY, testLength, testAngle, baseWidth,
+                                testCurve, config.branchCurvePos, config.branchWiggle, config.branchTaper,
+                                false, true
+                            );
+
+                            const score = calculateBranchScore(testData.points, startX);
+
+                            if (score > bestConfig.score) {
+                                bestConfig = {
+                                    angle: testAngle,
+                                    curve: testCurve,
+                                    length: testLength,
+                                    score: score
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestConfig;
+        }
+
+        // رسم الأغصان الرئيسية مع الفرعية بطريقة ذكية
+        function drawAllBranches(centerX, topY) {
+            if (!config.showBranches) return;
+
+            // تحديث مركز الشجرة ونصف قطرها
+            treeCenter = { x: centerX, y: topY - config.canopyOffsetY };
+            treeRadius = config.canopyRadius;
+
+            // نقطة بداية واحدة لجميع الأغصان
+            const branchStartY = topY + config.trunkHeight * (1 - config.branchStartPos);
+            const spreadRad = (config.branchSpread / 2) * Math.PI / 180;
+            const angleGapRad = config.branchAngleGap * Math.PI / 180;
+
+            // حساب عرض الجذع عند نقطة البداية
+            const trunkProgress = (canvas.height - 100 - branchStartY) / config.trunkHeight;
+            const trunkWidthAtPoint = config.baseWidth - (config.baseWidth - config.topWidth) * trunkProgress;
+
+            // سماكة الغصن
+            const branchW = trunkWidthAtPoint * config.branchWidth;
+
+            // ترتيب الأغصان: الأطراف أولاً ثم المركز
+            const branchOrder = [];
+            for (let i = 0; i < config.branchCount; i++) {
+                branchOrder.push(i);
+            }
+            branchOrder.sort((a, b) => {
+                const distA = Math.abs(a - (config.branchCount - 1) / 2);
+                const distB = Math.abs(b - (config.branchCount - 1) / 2);
+                return distB - distA;
+            });
+
+            for (const i of branchOrder) {
+                const t = config.branchCount > 1 ? i / (config.branchCount - 1) : 0.5;
+
+                // حساب الزاوية الأساسية
+                let baseAngle = Math.PI / 2 + spreadRad - t * spreadRad * 2;
+                baseAngle += (i % 2 === 0 ? 1 : -1) * angleGapRad * 0.5;
+
+                // تحديد الجانب
+                const side = baseAngle > Math.PI / 2 ? -1 : 1;
+
+                // التباعد الأفقي
+                const horizontalOffset = config.branchHorizontalGap * (t - 0.5) * 2;
+                const startX = centerX + horizontalOffset;
+
+                // طول أساسي
+                const baseLength = config.branchLength * (1 - Math.abs(t - 0.5) * 0.1);
+
+                // إيجاد أفضل تكوين
+                const bestConfig = findBestMainBranchConfig(
+                    startX, branchStartY, baseAngle, baseLength, branchW * 0.9, side
+                );
+
+                // رسم الغصن الرئيسي
+                const branchData = drawBranch(
+                    startX, branchStartY, bestConfig.length, bestConfig.angle, branchW * 0.9,
+                    bestConfig.curve, config.branchCurvePos, config.branchWiggle, config.branchTaper,
+                    true, true
+                );
+
+                // حفظ منطقة الغصن
+                drawnBranchAreas.push(branchData.points);
+
+                // رسم دائرة اسم الأب على الغصن
+                if (config.showFatherCircles && branchData.points && branchData.points.length > 0) {
+                    const circlePos = Math.max(0, Math.min(1, config.fatherCirclePos));
+                    const fatherPointIdx = Math.min(
+                        branchData.points.length - 1,
+                        Math.floor((branchData.points.length - 1) * circlePos)
+                    );
+                    const fatherPoint = branchData.points[fatherPointIdx];
+                    drawFatherCircle(
+                        fatherPoint.x,
+                        fatherPoint.y,
+                        branchW * config.fatherCircleRadiusScale,
+                        getRandomName()
+                    );
+                }
+
+                // جمع الأوراق على الغصن الرئيسي
+                collectLeavesOnBranch(branchData.points, branchData.angle, i);
+
+                // رسم الأغصان الفرعية
+                drawSubBranches(branchData.points, branchData.angle, i);
+            }
+        }
+
+        // رسم دائرة اسم الأب على الغصن
+        function drawFatherCircle(x, y, radius, name) {
+            ctx.save();
+
+            // رسم الدائرة
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = config.fatherCircleColor;
+            ctx.fill();
+            ctx.strokeStyle = config.fatherCircleStrokeColor;
+            ctx.lineWidth = config.fatherCircleStrokeWidth;
+            ctx.stroke();
+
+            // كتابة الاسم
+            ctx.fillStyle = config.fatherCircleTextColor;
+            ctx.font = `bold ${Math.max(8, radius * config.fatherCircleFontScale)}px 'Tajawal', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(name, x, y);
+
+            ctx.restore();
+        }
+
+        // رسم دوائر بيضوية للأجداد على الجذع
+        function drawAncestorOvals(centerX, baseY, topY) {
+            const trunkHeight = config.trunkHeight;
+            const ancestorCount = 3; // عدد الأجداد
+
+            for (let i = 0; i < ancestorCount; i++) {
+                // توزيع الأجداد على طول الجذع
+                const t = (i + 1) / (ancestorCount + 1);
+                const y = baseY - trunkHeight * t;
+
+                // حساب عرض الجذع عند هذه النقطة
+                const widthAtPoint = config.baseWidth - (config.baseWidth - config.topWidth) * t;
+
+                // أبعاد الشكل البيضوي
+                const ovalWidth = widthAtPoint * 0.7;
+                const ovalHeight = 30;
+
+                ctx.save();
+
+                // رسم الشكل البيضوي
+                ctx.beginPath();
+                ctx.ellipse(centerX, y, ovalWidth / 2, ovalHeight / 2, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#6B4423';
+                ctx.fill();
+                ctx.strokeStyle = '#4A2F17';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // كتابة اسم الجد
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = `bold 12px 'Tajawal', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(getRandomName(), centerX, y);
+
+                ctx.restore();
+            }
+        }
+
+        // رسم قاعدة الغصن (الاتصال بالجذع) - عريضة من الداخل وتتناقص للخارج
+        function drawBranchBase(centerX, y, trunkWidth, branchWidth, angle, side, horizontalOffset = 0) {
+            const edgeX = centerX + side * (trunkWidth / 2 + horizontalOffset);
+            const innerX = centerX + side * (trunkWidth * 0.05);
+
+            ctx.beginPath();
+
+            // عرض القاعدة عند الجذع (عريض جداً)
+            const baseWidthAtTrunk = branchWidth * config.branchBaseWidth * 1.8;
+            // عرض القاعدة عند الحافة (يساوي عرض الغصن)
+            const baseWidthAtEdge = branchWidth;
+
+            // نقاط التحكم للمنحنى
+            const midX = centerX + side * (trunkWidth * 0.35 + horizontalOffset * 0.3);
+            const midWidth = (baseWidthAtTrunk + baseWidthAtEdge) / 2;
+
+            // رسم الشكل المتناقص
+            // البداية من داخل الجذع (أعلى) - عريض
+            ctx.moveTo(innerX, y - baseWidthAtTrunk * 0.5);
+
+            // منحنى علوي متناقص نحو الحافة
+            ctx.bezierCurveTo(
+                centerX + side * (trunkWidth * 0.2), y - baseWidthAtTrunk * 0.55,
+                midX, y - midWidth * 0.5,
+                edgeX + side * 2, y - baseWidthAtEdge * 0.45
+            );
+
+            // الحافة الخارجية (ضيقة)
+            ctx.lineTo(edgeX + side * 2, y + baseWidthAtEdge * 0.45);
+
+            // منحنى سفلي متناقص نحو الجذع
+            ctx.bezierCurveTo(
+                midX, y + midWidth * 0.5,
+                centerX + side * (trunkWidth * 0.2), y + baseWidthAtTrunk * 0.55,
+                innerX, y + baseWidthAtTrunk * 0.5
+            );
+
+            ctx.closePath();
+
+            // تعبئة بتدرج من لون الجذع إلى لون الغصن
+            const gradient = ctx.createLinearGradient(innerX, y, edgeX, y);
+            gradient.addColorStop(0, config.trunkColor);
+            gradient.addColorStop(0.4, config.trunkColor);
+            gradient.addColorStop(0.7, config.branchColor);
+            gradient.addColorStop(1, config.branchColor);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // إضافة ظل خفيف للعمق
+            ctx.strokeStyle = config.shadowColor;
+            ctx.lineWidth = 0.5;
+            ctx.globalAlpha = 0.2;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawTrunk(centerX, baseY, topY) {
+            const curveOffset = config.trunkCurve;
+            const rightBase = centerX + config.baseWidth / 2;
+            const rightTop = centerX + config.topWidth / 2 + curveOffset;
+            const leftBase = centerX - config.baseWidth / 2;
+            const leftTop = centerX - config.topWidth / 2 + curveOffset;
+
+            const rightEdge = generateWigglyEdge(rightBase, baseY, rightTop, topY, config.edgeWiggle, 12, 1);
+            const leftEdge = generateWigglyEdge(leftBase, baseY, leftTop, topY, -config.edgeWiggle, 12, 2);
+
+            ctx.beginPath();
+            ctx.moveTo(rightEdge[0].x, rightEdge[0].y);
+            for (let i = 1; i < rightEdge.length; i++) {
+                const prev = rightEdge[i - 1], curr = rightEdge[i];
+                ctx.quadraticCurveTo((prev.x + curr.x) / 2 + Math.sin(i) * 3, (prev.y + curr.y) / 2, curr.x, curr.y);
+            }
+            ctx.lineTo(leftEdge[leftEdge.length - 1].x, leftEdge[leftEdge.length - 1].y);
+            for (let i = leftEdge.length - 2; i >= 0; i--) {
+                const prev = leftEdge[i + 1], curr = leftEdge[i];
+                ctx.quadraticCurveTo((prev.x + curr.x) / 2 - Math.sin(i) * 3, (prev.y + curr.y) / 2, curr.x, curr.y);
+            }
+            ctx.closePath();
+
+            const gradient = ctx.createLinearGradient(leftBase, baseY, rightBase, baseY);
+            gradient.addColorStop(0, config.shadowColor);
+            gradient.addColorStop(0.3, config.trunkColor);
+            gradient.addColorStop(0.7, config.highlightColor);
+            gradient.addColorStop(1, config.shadowColor);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            if (config.barkLines > 0) {
+                ctx.strokeStyle = config.shadowColor;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.4;
+                for (let i = 0; i < config.barkLines; i++) {
+                    const t = (i + 1) / (config.barkLines + 1);
+                    const startX = leftBase + (rightBase - leftBase) * t;
+                    const endX = leftTop + (rightTop - leftTop) * t + curveOffset * t;
+                    ctx.beginPath();
+                    ctx.moveTo(startX + Math.sin(i * 3) * 5, baseY);
+                    for (let j = 1; j <= 8; j++) {
+                        const segT = j / 8;
+                        ctx.lineTo(startX + (endX - startX) * segT + Math.sin(i * 2 + j * 1.5) * 8, baseY - config.trunkHeight * segT);
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.fillStyle = config.shadowColor;
+            ctx.globalAlpha = 0.3;
+            for (let i = 0; i < 5; i++) {
+                const y = baseY - Math.random() * config.trunkHeight * 0.8 - config.trunkHeight * 0.1;
+                const widthAtY = config.baseWidth - (config.baseWidth - config.topWidth) * ((baseY - y) / config.trunkHeight);
+                const x = centerX + (Math.random() - 0.5) * widthAtY * 0.6;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 5 + Math.random() * 10, 3 + Math.random() * 6, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawRoots(centerX, baseY) {
+            if (!config.showRoots) return;
+            const rootSpread = config.baseWidth * 0.8;
+            for (let i = 0; i < config.rootCount; i++) {
+                const t = (i + 0.5) / config.rootCount;
+                const startX = centerX - rootSpread / 2 + rootSpread * t;
+                const angle = (t - 0.5) * Math.PI * 0.6 + Math.PI / 2;
+                const endX = startX + Math.cos(angle) * config.rootLength * (0.7 + Math.sin(i) * 0.3);
+                const endY = baseY + Math.sin(angle) * config.rootLength * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(startX, baseY);
+                ctx.quadraticCurveTo(startX + (endX - startX) * 0.5, baseY + config.rootLength * 0.3, endX, endY);
+                ctx.strokeStyle = config.trunkColor;
+                ctx.lineWidth = 8 - i * 0.5;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                ctx.strokeStyle = config.shadowColor;
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.3;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // رسم الغلاف الخارجي (نصف دائرة مؤقتة)
+        function drawCanopy(centerX, topY) {
+            if (!config.showCanopy) return;
+
+            const canopyCenterY = topY - config.canopyOffsetY;
+
+            ctx.beginPath();
+            ctx.arc(centerX, canopyCenterY, config.canopyRadius, Math.PI, 0, false);
+            ctx.closePath();
+
+            // تعبئة شفافة
+            ctx.fillStyle = 'rgba(34, 139, 34, 0.1)';
+            ctx.fill();
+
+            // حدود متقطعة
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = 'rgba(34, 139, 34, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function renderRandomTreeToCache() {
+            const resized = cachedTreeCanvas.width !== canvas.width || cachedTreeCanvas.height !== canvas.height;
+            if (resized) {
+                cachedTreeCanvas.width = canvas.width;
+                cachedTreeCanvas.height = canvas.height;
+                randomTreeDirty = true;
+            }
+
+            if (!randomTreeDirty) return;
+
+            const mainCtx = ctx;
+            ctx = cachedTreeCtx;
+
+            // مسح مصفوفات الأوراق والأغصان لكل بناء جديد
+            leafPositions = [];
+            leavesToDraw = [];
+            drawnBranchAreas = [];
+
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, cachedTreeCanvas.width, cachedTreeCanvas.height);
+
+            const centerX = cachedTreeCanvas.width / 2;
+            const baseY = cachedTreeCanvas.height - 100;
+            const topY = baseY - config.trunkHeight;
+
+            // رسم كامل للشجرة (مرة واحدة حتى تتغير الإعدادات)
+            drawCanopy(centerX, topY);
+            drawAllBranches(centerX, topY);
+            drawTrunk(centerX, baseY, topY);
+            drawAncestorOvals(centerX, baseY, topY);
+            drawRoots(centerX, baseY);
+            drawAllLeaves();
+
+            ctx.restore();
+            cachedLeafCount = leavesToDraw.length;
+            randomTreeDirty = false;
+            ctx = mainCtx;
+        }
+
+        function draw() {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            // وضع العائلة: حساب ورسم مستقل وفق بيانات العائلة
+            if (useFamilyData && familyData) {
+                const scale = Math.min(canvas.width, canvas.height) / 900;
+                drawFamilyDataTree(familyData, scale, panX, panY);
+                const leafCountEl = document.getElementById('leaf-count');
+                if (leafCountEl) leafCountEl.textContent = countFamilyNodes(familyData);
+                return;
+            }
+
+            renderRandomTreeToCache();
+
+            ctx.save();
+            ctx.translate(panX, panY);
+            ctx.scale(zoom, zoom);
+            ctx.drawImage(cachedTreeCanvas, 0, 0);
+            ctx.restore();
+
+            const leafCountEl = document.getElementById('leaf-count');
+            if (leafCountEl) leafCountEl.textContent = cachedLeafCount;
+        }
+
+        function resetDefaults() {
+            config = { ...defaultConfig };
+            localStorage.removeItem('treeTrunkConfig');
+            document.querySelectorAll('input[type="range"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id] !== undefined) {
+                    input.value = config[id];
+                    const display = document.getElementById('v-' + id);
+                    if (display) display.textContent = config[id];
+                }
+            });
+            document.querySelectorAll('input[type="color"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id]) input.value = config[id];
+            });
+            document.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id] !== undefined) input.checked = config[id];
+            });
+            zoom = 1; panX = 0; panY = 0;
+            document.getElementById('zoom-level').textContent = '100';
+            markRandomTreeDirty();
+            scheduleDraw();
+        }
+
+        function exportImage() {
+            const link = document.createElement('a');
+            link.download = 'tree.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        setupControls();
+        updateUIFromConfig();
+        initFamilyNamePool();
+        loadFamilyData();
+        const famCheckbox = document.getElementById('i-useFamilyData');
+        if (famCheckbox && famCheckbox.checked) {
+            useFamilyData = true;
+        }
+        scheduleDraw();
+
+        // تحديث واجهة المستخدم من الإعدادات المحفوظة
+        function updateUIFromConfig() {
+            document.querySelectorAll('input[type="range"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id] !== undefined) {
+                    input.value = config[id];
+                    const display = document.getElementById('v-' + id);
+                    if (display) display.textContent = config[id];
+                }
+            });
+            document.querySelectorAll('input[type="color"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id]) input.value = config[id];
+            });
+            document.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                const id = input.id.replace('i-', '');
+                if (config[id] !== undefined) input.checked = config[id];
+            });
+        }
+    </script>
+    <script src="natural-tree-layout.js"></script>
+    <script src="natural-tree.js"></script>
+</body>
+
+</html>

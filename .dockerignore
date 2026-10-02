@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+.dockerignore
+README.md
+DYNAMIC_TREE.md
+*.log
+.env
+.env.*
+!.env.example
+node_modules
+vendor
