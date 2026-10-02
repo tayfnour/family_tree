@@ -5,7 +5,7 @@
     'use strict';
     const TAU = Math.PI * 2;
     // World units. The crown grows with the family while names keep their size.
-    const SIZE = { spacing: 50, leaf: 17, parent: 17, minCrown: 700, trunkChain: 5, ringHeads: 7, nameLeaf: { a: 19, b: 10.5 } };
+    const SIZE = { spacing: 64, leaf: 18, parent: 18, minCrown: 700, trunkChain: 5, ringHeads: 7, deco: 28 };
 
     // Validate before replacing live data. IDs are unique; depth follows ancestry.
     function normalize(raw) {
@@ -264,12 +264,49 @@
             Object.assign(child, { x: seed.x, y: seed.y });
             return { child, list, seed };
         });
-        // Every child's branch leaves straight from its father's fork.
-        placed.forEach(p => out.edges.push({ from: apex, to: p.child }));
+        connect(apex, placed.map(p => p.child), g, out);
         placed.forEach(({ child, list, seed }) => {
             const len = Math.sqrt(seed.d) || 1;
             place(child, child, { x: (apex.x - seed.x) / len, y: (apex.y - seed.y) / len }, list.filter(s => s !== seed), g, out);
         });
+    }
+    /* Limbs leave a father the way wood grows: his badge is the first fork,
+       where the wood splits into two or three limbs, and a limb carrying
+       several sons forks again on the way to them, heavier side first. Each
+       fork lies inside its group's angle and nearer than any member; a limb
+       that ever touches another branch is undone into plain branches. */
+    function connect(apex, kids, g, out) {
+        if (kids.length < 4 || (!apex.x && !apex.y)) { kids.forEach(c => out.edges.push({ from: apex, to: c })); return; }
+        // Contiguous groups of neighbouring sons, balanced by family size.
+        const split = (list, parts) => {
+            const total = list.reduce((s, c) => s + c.size, 0), groups = [];
+            let run = 0, current = [];
+            list.forEach((c, i) => {
+                current.push(c); run += c.size;
+                const need = parts - groups.length - 1;
+                if (need > 0 && list.length - i - 1 >= need && run >= total * (groups.length + 1) / parts) { groups.push(current); current = []; }
+            });
+            if (current.length) groups.push(current);
+            return groups;
+        };
+        const grow = (from, list, id) => {
+            if (list.length === 1) { out.edges.push({ from, to: list[0], bundle: id }); return; }
+            let sx = 0, sy = 0, near = Infinity;
+            for (const c of list) {
+                const dx = c.x - from.x, dy = c.y - from.y, l = Math.hypot(dx, dy) || 1;
+                sx += dx / l * c.size; sy += dy / l * c.size; near = Math.min(near, l);
+            }
+            const sl = Math.hypot(sx, sy) || 1, step = near * 0.45;
+            if (step < g.spacing * 0.4) { list.forEach(c => out.edges.push({ from, to: c, bundle: id })); return; }
+            const fork = { x: from.x + sx / sl * step, y: from.y + sy / sl * step, size: list.reduce((s, c) => s + c.size, 0), junction: true };
+            out.edges.push({ from, to: fork, bundle: id });
+            split(list, 2).forEach(part => grow(fork, part, id));
+        };
+        for (const group of split(kids, kids.length > 6 ? 3 : 2)) {
+            const id = out.bundles.size + 1;
+            out.bundles.set(id, { apex, kids: group });
+            grow(apex, group, id);
+        }
     }
     /* When every child is childless and they lie ahead of the father in a
        narrow band, one twig carries them all, leaf after leaf, like a real
@@ -346,6 +383,29 @@
         return true;
     }
 
+    // Smooth displacement that fades to nothing at the crown's rim and
+    // just above the medallions; its slope stays well below one.
+    function crownWarp(g) {
+        const A = g.spacing * 0.32, L1 = g.spacing * 5.2, L2 = g.spacing * 7.3, crown = g.crown, fade = g.spacing * 2.2;
+        const ramp = v => { const t = Math.max(0, Math.min(1, v / fade)); return t * t * (3 - 2 * t); };
+        return (x, y) => {
+            const env = ramp(crown.half((y - crown.top) / crown.H) - Math.abs(x)) * ramp(y - crown.top) * ramp(-g.cut - y);
+            if (!env) return { x: 0, y: 0 };
+            return {
+                x: env * A * (0.75 * Math.sin(y / L1 * TAU + 1.3) + 0.25 * Math.sin((x + y) / L2 * TAU + 0.2)),
+                y: env * A * 0.6 * Math.sin(x / L1 * TAU + 0.4)
+            };
+        };
+    }
+    function densify(points, step) {
+        const out = [points[0]];
+        for (let i = 1; i < points.length; i++) {
+            const a = points[i - 1], b = points[i], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step));
+            for (let k = 1; k <= n; k++) out.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n });
+        }
+        return out;
+    }
+
     function buildLayout(roots) {
         const nodes = [];
         function wrap(person, parent, depth) {
@@ -368,7 +428,7 @@
         const crownCount = nodes.length - chain.length - (ring ? heads.length : 0);
         const { g, pts } = chooseSlots(crownCount ? Math.ceil(crownCount * 1.06) + 4 : 0, ring ? heads.length : 0);
         const slots = pts.map(p => ({ x: p.x, y: p.y }));
-        const O = { x: 0, y: 0 }, down = { x: 0, y: 1 }, out = { edges: [] };
+        const O = { x: 0, y: 0 }, down = { x: 0, y: 1 }, out = { edges: [], bundles: new Map() };
 
         chain.forEach(n => { n.kind = 'trunk'; });
         nodes.forEach(n => { if (!n.kind) n.kind = n.children.length ? 'parent' : 'leaf'; n.r = n.kind === 'parent' ? SIZE.parent : SIZE.leaf; });
@@ -406,12 +466,15 @@
 
         // Widths follow how much family each piece of wood carries; twigs bow
         // gently with the flow, and any bowed twig found crossing is straightened.
-        const edges = out.edges;
+        let edges = out.edges;
+        const carried = e => e.axis || e.chain ? e.carries : e.to.size;
+        const outgoing = new Map();
+        for (const e of edges) outgoing.set(e.from, Math.max(outgoing.get(e.from) || 0, carried(e)));
         const dressEdge = e => {
             const size = e.axis || e.chain ? e.carries : e.to.size;
             e.w0 = branchWidth(size, g);
             // The tip matches the largest branch that carries on from it.
-            const onward = e.axis || e.chain ? size - 1 : e.to.children?.length ? Math.max(...e.to.children.map(c => c.size)) : 0;
+            const onward = e.axis || e.chain ? size - 1 : e.to.junction ? outgoing.get(e.to) || 1 : e.to.children?.length ? Math.max(...e.to.children.map(c => c.size)) : 0;
             e.w1 = onward ? Math.min(e.w0 * 0.82, branchWidth(onward, g)) : 0.9;
             e.curl = 2;
             e.fromNode = e.from.axis || (e.from.person ? e.from : null);
@@ -449,10 +512,12 @@
             // child's own main branch goes on, and winds a little on the way.
             const blend = (d, w) => { if (!d) return { x: ux, y: uy }; const x = d.x * w + ux * (1 - w), y = d.y * w + uy * (1 - w), l = Math.hypot(x, y) || 1; return x * ux + y * uy > 0.25 ? { x: x / l, y: y / l } : { x: ux, y: uy }; };
             const hl = Math.hypot(hx || 0, hy || 0), start = hl ? { x: hx / hl, y: hy / hl } : heading.get(a);
-            const s0 = blend(start, 0.72), s1 = blend(onward.get(to), 0.45), k = len * 0.4, wind = Math.min(11, len * 0.075) * side;
+            // Long limbs meander in several slow waves, like old wood.
+            const s0 = blend(start, 0.72), s1 = blend(onward.get(to), 0.45), k = len * 0.4, waves = Math.max(1, Math.round(len / 200));
+            const wind = Math.min(len * 0.075, 9 + len * 0.014, 24) * side, steps = 12 * waves;
             const c1 = { x: a.x + s0.x * k, y: a.y + s0.y * k }, c2 = { x: to.x - s1.x * k, y: to.y - s1.y * k };
-            return Array.from({ length: 13 }, (_, i) => {
-                const t = i / 12, v = 1 - t, w = Math.sin(t * Math.PI * 2) * wind * Math.sin(t * Math.PI);
+            return Array.from({ length: steps + 1 }, (_, i) => {
+                const t = i / steps, v = 1 - t, w = Math.sin(t * Math.PI * 2 * waves) * wind * Math.sin(t * Math.PI);
                 return { x: v * v * v * a.x + 3 * v * v * t * c1.x + 3 * v * t * t * c2.x + t * t * t * to.x - uy * w, y: v * v * v * a.y + 3 * v * v * t * c1.y + 3 * v * t * t * c2.y + t * t * t * to.y + ux * w };
             });
         };
@@ -474,8 +539,37 @@
         for (let round = 0; round < 10; round++) {
             const clashes = findCrossings(edges);
             if (!clashes.length) break;
-            clashes.forEach(([a, b]) => { for (const e of [a, b]) if (e.curl) { e.curl--; e.points = shape(e); } });
+            const undo = new Set();
+            clashes.forEach(([a, b]) => { for (const e of [a, b]) { if (e.bundle) undo.add(e.bundle); else if (e.curl) { e.curl--; e.points = shape(e); } } });
+            // A limb that touched another branch goes back to plain branches.
+            if (undo.size) {
+                edges = edges.filter(e => !undo.has(e.bundle));
+                for (const id of undo) for (const kid of out.bundles.get(id).kids) { const e = { from: out.bundles.get(id).apex, to: kid }; dressEdge(e); edges.push(e); }
+                flows();
+                for (const e of edges) if (!e.bundle && e.points && (heading.has(e.from) || onward.has(e.to))) e.points = shape(e);
+                for (const e of edges) if (!e.points) e.points = shape(e);
+            }
         }
+
+        // Finally the whole crown is bent by one slow, smooth wave, so long
+        // limbs and their neighbours wind together like grain in old wood.
+        // The bend is one-to-one, so wood that did not cross cannot cross
+        // after it; wood that only grazed is traced more finely.
+        const warp = crownWarp(g);
+        const bend = (points, step) => densify(points, step).map(p => { const d = warp(p.x, p.y); return { x: p.x + d.x, y: p.y + d.y }; });
+        for (const e of edges) { e.plain = e.points; e.points = bend(e.points, 9); }
+        for (let round = 0; round < 4; round++) {
+            const clashes = findCrossings(edges);
+            if (!clashes.length) break;
+            // Wood that grazed is traced finely, then eased if it still touches.
+            for (const [a, b] of clashes) for (const e of [a, b]) { if (round && e.curl) { e.curl--; e.plain = shape(e); } e.points = bend(e.plain, 1); }
+        }
+        for (const e of edges) delete e.plain;
+        // The names follow the bend of the wood they sit on.
+        const moved = new Set();
+        const move = p => { if (moved.has(p)) return; moved.add(p); const d = warp(p.x, p.y); p.x += d.x; p.y += d.y; };
+        for (const e of edges) { move(e.from); move(e.to); }
+        for (const n of nodes) if (n.kind !== 'trunk') move(n);
 
         // The trunk splits into one short limb per medallion.
         const stems = ring ? heads.map(h => ({ to: h, from: { x: Math.max(-g.trunkTop * 0.3, Math.min(g.trunkTop * 0.3, h.x * 0.45)), y: g.trunkTop * 0.75 },
@@ -490,52 +584,80 @@
         };
     }
 
-    // A leaf is approximated by three discs along its midrib; two leaves
+    // A leaf is approximated by two discs along its midrib; two leaves
     // overlap only if some of their discs do.
-    function footprint(cx, cy, angle, a, b) {
-        const c = Math.cos(angle), s = Math.sin(angle);
-        return [-0.55, 0, 0.55].map(t => ({ x: cx + c * a * t, y: cy + s * a * t, r: b }));
-    }
     function decoPrint(f) {
         const c = Math.cos(f.a), s = Math.sin(f.a);
         return [0.33, 0.72].map(t => ({ x: f.x + c * f.l * t, y: f.y + s * f.l * t, r: f.l * 0.27 }));
     }
-    // Leaf angles stay within about 35 degrees of level so names stay readable.
-    const readable = angle => {
-        const n = Math.atan2(Math.sin(angle), Math.cos(angle)), cap = 0.6;
-        if (Math.cos(n) >= 0) return Math.max(-cap, Math.min(cap, n));
-        const back = Math.atan2(Math.sin(n - Math.PI), Math.cos(n - Math.PI));
-        return Math.PI + Math.max(-cap, Math.min(cap, back));
-    };
 
-    /* Fathers and grandfathers sit on circles at their forks, so the line
-       of descent reads down every branch; the youngest are small green
-       leaves at the tips of their twigs. Only named leaves are drawn, and
-       no leaf is placed where it would touch another leaf or a circle. */
+    /* As on a calligrapher's family-tree poster, every name sits on a round
+       badge: fathers and grandfathers on their forks, the youngest at the
+       tips of their twigs. Dark green leaves then grow on short stalks along
+       the branches and round the tip badges, wherever there is room: a leaf
+       never touches another leaf, a badge or another branch. */
     function dress(nodes, edges, g) {
-        const cell = 48, grid = new Map(), { a: A, b: B } = SIZE.nameLeaf;
-        const keyOf = (x, y) => `${Math.floor(x / cell)},${Math.floor(y / cell)}`;
+        // Small discs live in a fine grid and large ones in a coarse grid, so
+        // a leaf only ever looks at what is really around it.
+        const L = SIZE.deco, grids = [{ cell: 24, map: new Map() }, { cell: 96, map: new Map() }];
+        const gridOf = r => grids[r <= 12 ? 0 : 1];
         const free = (discs, self) => discs.every(d => {
-            const gx = Math.floor(d.x / cell), gy = Math.floor(d.y / cell);
-            for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of grid.get(`${gx + i},${gy + j}`) || []) if (!(self && p.owner === self) && Math.hypot(p.x - d.x, p.y - d.y) < p.r + d.r) return false;
+            for (const { cell, map } of grids) {
+                const gx = Math.floor(d.x / cell), gy = Math.floor(d.y / cell);
+                for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+                    const list = map.get((gx + i) * 65536 + gy + j);
+                    if (list) for (const p of list) if (!(self && p.owner === self) && (p.x - d.x) ** 2 + (p.y - d.y) ** 2 < (p.r + d.r) ** 2) return false;
+                }
+            }
             return true;
         });
-        const keep = discs => discs.forEach(d => { const k = keyOf(d.x, d.y); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(d); });
-        const dirAt = (pts, end) => { const p = end ? pts[pts.length - 2] : pts[0], q = end ? pts[pts.length - 1] : pts[1]; return Math.atan2(q.y - p.y, q.x - p.x); };
-        const incoming = new Map();
-        for (const e of edges) if (e.to.person) incoming.set(e.to, dirAt(e.points, true));
-        // Fathers and grandfathers are circles on their forks; the youngest
-        // generation are small green leaves at the tips of their twigs.
-        for (const n of nodes) if (n.kind === 'parent' || n.kind === 'medallion') keep([{ x: n.x, y: n.y, r: n.r + 2 }]);
-        for (const n of nodes) if (n.kind === 'leaf') {
-            const angle = readable(incoming.get(n) ?? -Math.PI / 2);
-            let scale = 1;
-            while (scale > 0.5 && !free(footprint(n.x, n.y, angle, A * scale, B * scale))) scale -= 0.1;
-            n.leaf = { x: n.x, y: n.y, a: angle, s: scale };
-            keep(footprint(n.x, n.y, angle, A * scale, B * scale));
-        }
-        // Only named leaves are drawn; there are no nameless leaves.
+        const keep = discs => discs.forEach(d => { const { cell, map } = gridOf(d.r), k = Math.floor(d.x / cell) * 65536 + Math.floor(d.y / cell); if (!map.has(k)) map.set(k, []); map.get(k).push(d); });
+        const fits = (leaf, self) => {
+            const tipX = leaf.x + Math.cos(leaf.a) * leaf.l, tipY = leaf.y + Math.sin(leaf.a) * leaf.l;
+            return tipY > g.crown.top - 6 && g.crown.inside(tipX * 0.97, tipY) && tipY < -g.cut + 20 && free(decoPrint(leaf), self);
+        };
+        for (const n of nodes) if (n.kind !== 'trunk') keep([{ x: n.x, y: n.y, r: n.r + 2 }]);
+        // The wood itself is kept clear, so leaves only ever grow beside it.
+        const walk = (e, step, visit) => {
+            const pts = e.points, seg = [];
+            let total = 0;
+            for (let s = 0; s < pts.length - 1; s++) { const l = Math.hypot(pts[s + 1].x - pts[s].x, pts[s + 1].y - pts[s].y); seg.push(l); total += l; }
+            for (let along = step / 2; along < total; along += step) {
+                let s = 0, left = along;
+                while (s < seg.length - 1 && left > seg[s]) left -= seg[s++];
+                const p = pts[s], q = pts[s + 1], t = seg[s] ? left / seg[s] : 0;
+                visit(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t, Math.atan2(q.y - p.y, q.x - p.x), (e.w0 + (e.w1 - e.w0) * Math.pow(along / total, 0.8)) / 2, along, total);
+            }
+        };
+        for (const e of edges) walk(e, 5, (x, y, dir, w) => keep([{ x, y, r: Math.min(38, w + 0.5), owner: e }]));
         const leaves = [];
+        let i = 0;
+        const grow = (leaf, self) => { if (fits(leaf, self)) { keep(decoPrint(leaf)); leaves.push(leaf); return true; } return false; };
+        // A small fan of leaves round every tip badge, opening outwards.
+        const incoming = new Map();
+        for (const e of edges) if (e.to.person) { const p = e.points[e.points.length - 2], q = e.points[e.points.length - 1]; incoming.set(e.to, Math.atan2(q.y - p.y, q.x - p.x)); }
+        for (const n of nodes) if (n.kind === 'leaf') {
+            const dir = incoming.get(n) ?? -Math.PI / 2;
+            for (const turn of [0, 0.8, -0.8, 1.6, -1.6]) {
+                i++;
+                const a = dir + turn + (noise(i, 3) - 0.5) * 0.3, l = L * (0.9 + noise(i, 4) * 0.25), bx = n.x + Math.cos(a) * n.r, by = n.y + Math.sin(a) * n.r;
+                grow({ bx, by, x: bx + Math.cos(a) * 2.5, y: by + Math.sin(a) * 2.5, a, l, t: i & 1 });
+            }
+        }
+        // Then leaves in alternate pairs along the outer, thinner wood, and
+        // smaller ones in the gaps that are left.
+        for (const [step, size] of [[17, 1], [11, 0.68]]) for (const e of edges) {
+            if (e.w1 > 16) continue;
+            walk(e, step, (x, y, dir, w, along, total) => {
+                if (w > 8 || along < 8 || total - along < 6) return;
+                for (const side of (i & 1 ? [1, -1] : [-1, 1])) {
+                    i++;
+                    const nx = -Math.sin(dir) * side, ny = Math.cos(dir) * side, bx = x + nx * w, by = y + ny * w;
+                    const a = dir + side * (0.8 + noise(i, 3) * 0.35), l = L * size * (0.82 + noise(i, 4) * 0.3), stem = 3 + noise(i, 6) * 2.5;
+                    grow({ bx, by, x: bx + Math.cos(a) * stem, y: by + Math.sin(a) * stem, a, l, t: i & 1 }, e);
+                }
+            });
+        }
         return leaves;
     }
 
@@ -566,8 +688,13 @@
                     // Siblings meet at their shared fork; only count real crossings.
                     if (e.from === f.from) {
                         const hit = intersection(a, b, c, d);
-                        if (Math.hypot(hit.x - e.from.x, hit.y - e.from.y) < 1.5) continue;
+                        // A meeting hidden under the father's own badge is not a crossing.
+                        if (Math.hypot(hit.x - e.from.x, hit.y - e.from.y) < (e.from.person ? e.from.r * 0.7 : 3)) continue;
                     }
+                    // Wood that only touches at a name's very centre, as it did
+                    // before the crown was bent, is not a crossing.
+                    const hit = intersection(a, b, c, d), ends = [e.from, e.to, f.from, f.to].filter(n => n.person);
+                    if (ends.some(n => Math.hypot(hit.x - n.x, hit.y - n.y) < 1)) continue;
                     seen.add(key); out.push([e, f]);
                 }
             }
@@ -595,14 +722,14 @@
                 for (const n of near) if (n !== e.to && n !== e.fromNode && n !== e.ringFrom && distanceToSegment(n, a, b) < n.r * 0.55) { hits++; break; }
             }
         });
-        // Leaves: every pair of name and decorative leaves must be apart.
+        // Leaves: no leaf may touch another leaf or any name badge.
         const discs = [];
-        layout.nodes.forEach((n, id) => { if (n.kind === 'parent') discs.push({ x: n.x, y: n.y, r: n.r, id }); if (n.leaf) footprint(n.leaf.x, n.leaf.y, n.leaf.a, SIZE.nameLeaf.a * n.leaf.s, SIZE.nameLeaf.b * n.leaf.s).forEach(d => discs.push({ ...d, id })); });
+        crowned.forEach((n, id) => discs.push({ x: n.x, y: n.y, r: n.r, id }));
         layout.foliage.forEach((f, j) => decoPrint(f).forEach(d => discs.push({ ...d, id: -1 - j })));
         const lg = new Map();
-        discs.forEach(d => { const k = `${Math.floor(d.x / 48)},${Math.floor(d.y / 48)}`; if (!lg.has(k)) lg.set(k, []); lg.get(k).push(d); });
+        discs.forEach(d => { const k = `${Math.floor(d.x / 96)},${Math.floor(d.y / 96)}`; if (!lg.has(k)) lg.set(k, []); lg.get(k).push(d); });
         let leafOverlaps = 0;
-        discs.forEach(d => { const gx = Math.floor(d.x / 48), gy = Math.floor(d.y / 48); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of lg.get(`${gx + i},${gy + j}`) || []) if (p.id !== d.id && Math.hypot(p.x - d.x, p.y - d.y) < p.r + d.r - 0.5) leafOverlaps++; });
+        discs.forEach(d => { const gx = Math.floor(d.x / 96), gy = Math.floor(d.y / 96); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of lg.get(`${gx + i},${gy + j}`) || []) if (p.id !== d.id && Math.hypot(p.x - d.x, p.y - d.y) < p.r + d.r - 0.5) leafOverlaps++; });
         return { crossings: findCrossings(layout.edges).length, overlaps: overlaps / 2, leafOverlaps: leafOverlaps / 2, branchesUnderNames: hits };
     }
 

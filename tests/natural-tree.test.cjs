@@ -33,8 +33,7 @@ function checkLayout(roots) {
     assert.equal(report.crossings, 0, 'branches never cross');
     assert.equal(report.overlaps, 0, 'names never overlap');
     assert.equal(report.leafOverlaps, 0, 'leaves never overlap');
-    for (const n of layout.nodes) if (n.kind === 'leaf') assert.ok(n.leaf, 'every child without children sits on a leaf');
-    for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(!n.leaf, 'fathers sit on circles at their forks');
+    for (const n of layout.nodes) if (n.kind === 'leaf' || n.kind === 'parent') assert.ok(n.r >= 15, 'every name sits on a round badge');
     return layout;
 }
 
@@ -88,7 +87,7 @@ test('5000 people', () => {
 test('the crown grows with the family', () => {
     const small = buildLayout(normalize(family(50, 4))), big = buildLayout(normalize(family(1500, 4)));
     assert.ok(big.geometry.W > small.geometry.W * 1.5);
-    assert.equal(small.foliage.length, 0, 'no nameless leaves');
+    assert.ok(big.foliage.length > small.foliage.length * 5, 'leaves grow with the branches');
 });
 test('adding one person keeps the crown in place', () => {
     const roots = normalize(family(300, 9));
@@ -105,14 +104,27 @@ test('layout is deterministic and never edits the records', () => {
     assert.equal(JSON.stringify(roots), copy);
     assert.deepEqual(a.nodes.map(n => [n.x, n.y]), b.nodes.map(n => [n.x, n.y]));
 });
-test('fathers sit on their forks and only named leaves are drawn', () => {
+test('fathers sit on their forks and leaves hang from the wood', () => {
     const layout = checkLayout(normalize(family(400, 13)));
     const forks = new Set(layout.edges.map(e => e.from));
     for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(forks.has(n), 'every father is a fork');
-    assert.equal(layout.foliage.length, 0, 'only named leaves');
-    for (const n of layout.nodes) if (n.kind === 'parent') assert.ok(layout.edges.filter(e => e.from === n).length >= Math.min(1, n.children.length), 'branches split at the father');
-    const tapered = layout.edges.filter(e => !e.axis && e.to.children?.length);
+    for (const n of layout.nodes) {
+        const leaving = layout.edges.filter(e => e.from === n);
+        // A sprig or an axis carries its sons one after another instead.
+        if (n.kind === 'parent' && n.children.length > 3 && !leaving.some(e => e.chain || e.axis)) assert.ok(leaving.length >= 2, 'the wood splits at the father');
+    }
+    assert.ok(layout.edges.some(e => e.to.junction), 'limbs fork again on the way to the sons');
+    const tapered = layout.edges.filter(e => !e.axis && (e.to.junction || e.to.children?.length));
     assert.ok(tapered.every(e => e.w1 <= e.w0), 'branches thin towards their tip');
+    // Every leaf stalk starts on a branch or on the rim of a tip badge.
+    assert.ok(layout.foliage.length > 1000, 'the crown is in leaf');
+    const near = (p, a, b) => { const vx = b.x - a.x, vy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(p.x - a.x - vx * t, p.y - a.y - vy * t); };
+    for (const f of layout.foliage) {
+        const p = { x: f.bx, y: f.by };
+        const onWood = layout.edges.some(e => e.points.some((q, i) => i && near(p, e.points[i - 1], q) <= Math.max(e.w0, e.w1) / 2 + 1.5));
+        const onBadge = layout.nodes.some(n => n.kind === 'leaf' && Math.abs(Math.hypot(n.x - p.x, n.y - p.y) - n.r) < 1);
+        assert.ok(onWood || onBadge, 'leaf stalk attached');
+    }
 });
 test('names and leaves stay inside the crown', () => {
     const layout = buildLayout(normalize(family(600, 5)));

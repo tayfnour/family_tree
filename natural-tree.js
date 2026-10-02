@@ -39,12 +39,36 @@
     function mix(hex, other, t) {
         const parse = h => { const v = /^#?([0-9a-f]{6})$/i.exec(h || ''); const n = v ? parseInt(v[1], 16) : 0x777777; return [n >> 16, (n >> 8) & 255, n & 255]; };
         const a = parse(hex), b = parse(other);
-        return `rgb(${a.map((c, i) => Math.round(c + (b[i] - c) * t)).join(',')})`;
+        return `#${a.map((c, i) => Math.round(c + (b[i] - c) * t).toString(16).padStart(2, '0')).join('')}`;
     }
     function palette() {
         const leaf = config.leafColor || '#228B22', trunk = config.trunkColor || '#884D2A', branch = config.branchColor || '#6B3D1F';
-        return { canopy: mix(leaf, '#e9f7c8', 0.72), canopyShade: mix(leaf, '#cfe9a0', 0.5), leafLight: mix(leaf, '#d8f08a', 0.42), leafDark: mix(leaf, '#0f2a08', 0.12), leafTip: mix(leaf, '#f3f7a0', 0.62),
-            trunk: mix(trunk, '#000000', 0.12), trunkLight: mix(trunk, '#e8b47a', 0.18), bark: mix(trunk, '#000000', 0.45), branch: mix(branch, '#000000', 0.08) };
+        // Muted poster greens and warm wood browns, still following the colour controls.
+        const green = mix(leaf, '#2c5e26', 0.65);
+        return { leaf: green, leafLight: mix(green, '#5f9c45', 0.35), leafVein: mix(green, '#a8d08a', 0.4), leafEdge: mix(green, '#0c2108', 0.4),
+            trunk: mix(trunk, '#5a3417', 0.35), branch: mix(branch, '#6a3e1c', 0.3), bark: mix(trunk, '#000000', 0.5), stalk: mix(branch, '#3c2410', 0.4) };
+    }
+    // Wood grain: a small tile of wavy streaks, drawn once per colour and
+    // repeated over the trunk and every branch.
+    const grains = new Map();
+    function grain(color) {
+        if (!grains.has(color)) {
+            const size = 240, c = document.createElement('canvas'); c.width = c.height = size;
+            const g = c.getContext('2d'), rand = (() => { let a = 1234567; return () => (a = (a * 16807) % 2147483647) / 2147483647; })();
+            g.fillStyle = color; g.fillRect(0, 0, size, size);
+            for (let k = 0; k < 90; k++) {
+                const x0 = rand() * size, amp = 2 + rand() * 7, waves = 1 + Math.floor(rand() * 3), phase = rand() * TAU, light = rand() < 0.45;
+                g.strokeStyle = light ? `rgba(255,226,180,${0.05 + rand() * 0.09})` : `rgba(30,12,0,${0.08 + rand() * 0.14})`;
+                g.lineWidth = 0.6 + rand() * 2.4;
+                for (const shift of [-size, 0, size]) {
+                    g.beginPath();
+                    for (let y = 0; y <= size; y += 4) { const x = x0 + shift + Math.sin(phase + y / size * TAU * waves) * amp; y ? g.lineTo(x, y) : g.moveTo(x, y); }
+                    g.stroke();
+                }
+            }
+            grains.set(color, c);
+        }
+        return ctx.createPattern(grains.get(color), 'repeat');
     }
 
     // Geometry is written as SVG path data and parsed once by the browser,
@@ -63,25 +87,14 @@
         }
         out.push(`M${left.join('L')}L${right.reverse().join('L')}Z`);
     }
-    // Two strands wind round each other along a thicker branch, so the wood
-    // looks twisted like an old olive or fig, while staying inside it.
-    function twist(e, dark, light) {
-        const pts = e.points, out = [[], []];
-        let along = 0, total = 0;
-        for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        const period = Math.max(22, e.w0 * 3.2), seed = (e.to.x * 0.37 + e.to.y * 0.11) % TAU;
-        for (let i = 0; i < pts.length - 1; i++) {
-            const p = pts[i], q = pts[i + 1], len = Math.hypot(q.x - p.x, q.y - p.y) || 1, nx = -(q.y - p.y) / len, ny = (q.x - p.x) / len;
-            for (let s = 0; s < len; s += 3, along += 3) {
-                const t = s / len, x = p.x + (q.x - p.x) * t, y = p.y + (q.y - p.y) * t;
-                const half = (e.w0 + (e.w1 - e.w0) * Math.pow(along / total, 0.8)) / 2 * 0.62, phase = seed + along / period * TAU;
-                out[0].push(`${f1(x + nx * Math.sin(phase) * half)} ${f1(y + ny * Math.sin(phase) * half)}`);
-                out[1].push(`${f1(x - nx * Math.sin(phase) * half)} ${f1(y - ny * Math.sin(phase) * half)}`);
-            }
-        }
-        if (out[0].length > 1) { dark.push(`M${out[0].join('L')}`); light.push(`M${out[1].join('L')}`); }
-    }
     const disc = (out, x, y, r) => out.push(`M${f1(x + r)} ${f1(y)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(x - r)} ${f1(y)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(x + r)} ${f1(y)}Z`);
+    // A round badge with a softly scalloped rim, like the name plaques on a
+    // calligrapher's family-tree poster.
+    function badge(out, x, y, r) {
+        const pts = [];
+        for (let i = 0; i < 60; i++) { const a = i / 60 * TAU, k = r * (0.92 + 0.08 * Math.abs(Math.sin(a * 6))); pts.push(`${f1(x + Math.cos(a) * k)} ${f1(y + Math.sin(a) * k)}`); }
+        out.push(`M${pts.join('L')}Z`);
+    }
     const toPath = list => new Path2D(list.join(''));
 
     // Static geometry is built once per layout. Foliage is split into tiles
@@ -89,61 +102,33 @@
     const TILE = 800;
     let scene = null;
     function buildScene(l) {
-        const tiles = new Map(), branches = [], nameLight = [], nameDark = [], gold = [], petioles = [], twistDark = [], twistLight = [];
-        const { a: A, b: B } = SIZE.nameLeaf;
+        const tiles = new Map(), branches = [], rims = [], faces = [], rings = [];
         for (const f of l.foliage) {
             const key = `${Math.floor(f.x / TILE)},${Math.floor(f.y / TILE)}`;
-            if (!tiles.has(key)) tiles.set(key, { x: Math.floor(f.x / TILE) * TILE, y: Math.floor(f.y / TILE) * TILE, light: [], dark: [], tip: [], stems: [] });
-            const t = tiles.get(key), c = Math.cos(f.a), d = Math.sin(f.a), tx = f1(f.x + c * f.l), ty = f1(f.y + d * f.l), w = f.l * 0.46;
-            const mx = f.x + c * f.l * 0.45, my = f.y + d * f.l * 0.45, x = f1(f.x), y = f1(f.y);
-            (f.t === 2 ? t.tip : t.light).push(`M${x} ${y}Q${f1(mx - d * w)} ${f1(my + c * w)} ${tx} ${ty}Z`);
-            t.dark.push(`M${x} ${y}L${tx} ${ty}Q${f1(mx + d * w)} ${f1(my - c * w)} ${x} ${y}Z`);
+            if (!tiles.has(key)) tiles.set(key, { x: Math.floor(f.x / TILE) * TILE, y: Math.floor(f.y / TILE) * TILE, leaf: [], half: [], vein: [], stems: [] });
+            // An ovate, pointed leaf: a darker blade, a lighter half and a pale midrib.
+            const t = tiles.get(key), c = Math.cos(f.a), d = Math.sin(f.a), w = f.l * 0.27, x = f1(f.x), y = f1(f.y);
+            const at = (u, v) => `${f1(f.x + c * f.l * u - d * w * v)} ${f1(f.y + d * f.l * u + c * w * v)}`, tip = at(1, 0);
+            t.leaf.push(`M${x} ${y}C${at(0.22, 1.35)} ${at(0.7, 1)} ${tip}C${at(0.7, -1)} ${at(0.22, -1.35)} ${x} ${y}Z`);
+            t.half.push(`M${x} ${y}C${at(0.22, f.t ? 1.35 : -1.35)} ${at(0.7, f.t ? 1 : -1)} ${tip}Z`);
+            t.vein.push(`M${at(0.06, 0)}L${at(0.86, 0)}`);
             t.stems.push(`M${f1(f.bx)} ${f1(f.by)}L${x} ${y}`);
         }
         for (const e of l.edges) {
             taper(branches, e.points, e.w0, e.w1);
             if (e.axis || e.to.junction || e.to.children?.length) disc(branches, e.to.x, e.to.y, e.w1 / 2);
-            if (e.w0 >= 5) twist(e, twistDark, twistLight);
         }
-        // Medallion stems grow out of the trunk top in a soft curve.
+        // Medallion limbs grow out of the trunk top in a soft curve.
         const stems = [];
         for (const e of l.stems) {
             const c = { x: e.from.x * 0.4 + e.to.x * 0.1, y: Math.min(e.from.y, e.to.y) * 0.2 + e.to.y * 0.3 };
             taper(stems, Array.from({ length: 9 }, (_, i) => { const t = i / 8, u = 1 - t; return { x: u * u * e.from.x + 2 * u * t * c.x + t * t * e.to.x, y: u * u * e.from.y + 2 * u * t * c.y + t * t * e.to.y }; }), e.w0, e.w1);
         }
-        // Small green leaves carry the youngest; circles on the forks carry
-        // fathers and grandfathers.
-        for (const n of l.nodes) {
-            if (n.kind === 'parent') { disc(gold, n.x, n.y, n.r); disc(petioles, n.x, n.y, n.r * 0.78); }
-            if (!n.leaf) continue;
-            const f = n.leaf, c = Math.cos(f.a), d = Math.sin(f.a), a = A * f.s, w = B * f.s * 2;
-            const bx = f.x - c * a, by = f.y - d * a, tx = f.x + c * a, ty = f.y + d * a;
-            // Same two-tone leaf as the foliage, just large enough for a name.
-            nameLight.push(`M${f1(bx)} ${f1(by)}Q${f1(f.x - d * w)} ${f1(f.y + c * w)} ${f1(tx)} ${f1(ty)}Z`);
-            nameDark.push(`M${f1(bx)} ${f1(by)}L${f1(tx)} ${f1(ty)}Q${f1(f.x + d * w)} ${f1(f.y - c * w)} ${f1(bx)} ${f1(by)}Z`);
-        }
-        // The crown's outline as one flat, evenly scalloped canopy behind the
-        // wood, with a darker copy just below it for a little depth.
-        const o = l.crown.outline, len = [0];
-        for (let i = 1; i <= o.length; i++) len.push(len[i - 1] + Math.hypot(o[i % o.length].x - o[i - 1].x, o[i % o.length].y - o[i - 1].y));
-        const perimeter = len[o.length], bumps = Math.max(24, Math.round(perimeter / (l.crown.W / 9))), period = perimeter / bumps, cy = l.crown.top + l.crown.H * 0.5;
-        const rim = [];
-        for (let k = 0, j = 0; k < bumps * 10; k++) {
-            const s = k * perimeter / (bumps * 10);
-            while (len[j + 1] < s) j++;
-            const p = o[j], q = o[(j + 1) % o.length], t = (s - len[j]) / ((len[j + 1] - len[j]) || 1);
-            const x = p.x + (q.x - p.x) * t, y = p.y + (q.y - p.y) * t, d = Math.hypot(x, y - cy) || 1;
-            const lift = period * 0.32 * Math.pow(Math.abs(Math.sin(Math.PI * s / period)), 0.6);
-            rim.push({ x: x + x / d * lift, y: y + (y - cy) / d * lift });
-        }
-        const canopy = [`M${rim.map(p => `${f1(p.x)} ${f1(p.y)}`).join('L')}Z`];
-        const shade = [`M${rim.map(p => `${f1(p.x * 0.985)} ${f1(p.y + l.crown.H * 0.022)}`).join('L')}Z`];
+        // Every name in the crown sits on a cream badge with a gold rim.
+        for (const n of l.nodes) if (n.kind === 'parent' || n.kind === 'leaf') { badge(rims, n.x, n.y, n.r); badge(faces, n.x, n.y, n.r - 1.8); disc(rings, n.x, n.y, n.r * 0.74); }
         return {
-            canopy: toPath(canopy), shade: toPath(shade),
-            tiles: [...tiles.values()].map(t => ({ x: t.x, y: t.y, light: toPath(t.light), dark: toPath(t.dark), tip: toPath(t.tip), stems: toPath(t.stems) })),
-            branches: toPath(branches), stems: toPath(stems), nameLight: toPath(nameLight), nameDark: toPath(nameDark), gold: toPath(gold), petioles: toPath(petioles), twistDark: toPath(twistDark), twistLight: toPath(twistLight),
-            // Wavy flat clouds and a two-tone hill, all vector.
-            clouds: Array.from({ length: 5 }, (_, i) => ({ x: l.left + l.width * (0.1 + 0.2 * i + Math.sin(i * 7) * 0.05), y: l.top + l.height * (0.07 + 0.09 * (i % 3)), s: l.width * (0.05 + 0.02 * (i % 2)) }))
+            tiles: [...tiles.values()].map(t => ({ x: t.x, y: t.y, leaf: toPath(t.leaf), half: toPath(t.half), vein: toPath(t.vein), stems: toPath(t.stems) })),
+            branches: toPath(branches), stems: toPath(stems), rims: toPath(rims), faces: toPath(faces), rings: toPath(rings)
         };
     }
 
@@ -163,15 +148,11 @@
         return n.label;
     }
     function text(n, maxWidth, base, min, color) {
-        const t = fitText(n, maxWidth, base, min), at = n.leaf || n;
-        ctx.save(); ctx.translate(at.x, at.y);
-        // Text follows the leaf's tilt but always reads left to right.
-        if (n.leaf) ctx.rotate(Math.cos(n.leaf.a) >= 0 ? n.leaf.a : n.leaf.a - Math.PI);
+        const t = fitText(n, maxWidth, base, min);
+        ctx.save(); ctx.translate(n.x, n.y);
         ctx.font = `bold ${t.size}px Tajawal, Tahoma, sans-serif`; ctx.fillStyle = color;
         t.lines.forEach((line, i) => {
             const y = 1 + (i - (t.lines.length - 1) / 2) * t.size * 1.05;
-            // White names on green leaves get a dark edge so they stay legible.
-            if (n.leaf) { ctx.strokeStyle = '#1f4214'; ctx.lineWidth = Math.max(1.6, t.size * 0.28); ctx.lineJoin = 'round'; ctx.strokeText(line, 0, y, maxWidth); }
             ctx.fillText(line, 0, y, maxWidth);
         });
         ctx.restore();
@@ -179,66 +160,68 @@
 
     // Everything except names and the selection ring; `view` culls foliage.
     function scenery(view) {
-        const l = layout, s = scene || (scene = buildScene(l)), p = palette();
-        const sky = ctx.createLinearGradient(0, l.top, 0, l.ground);
-        sky.addColorStop(0, '#9fd3f2'); sky.addColorStop(0.7, '#dcf0fa'); sky.addColorStop(1, '#f4fafc');
-        ctx.fillStyle = sky; ctx.fillRect(l.left, l.top, l.width, l.height);
-        ctx.fillStyle = '#ffffffd0';
-        for (const c of s.clouds) { ctx.beginPath(); for (const [dx, dy, r] of [[0, 0, 1], [0.9, 0.2, 0.75], [-0.9, 0.25, 0.7], [0.35, -0.45, 0.72]]) { ctx.moveTo(c.x + dx * c.s + r * c.s, c.y + dy * c.s); ctx.arc(c.x + dx * c.s, c.y + dy * c.s, r * c.s, 0, TAU); } ctx.fill(); }
-        const ground = l.ground;
-        ctx.fillStyle = '#a5d16a'; ctx.beginPath(); ctx.moveTo(l.left, ground - 10);
-        ctx.quadraticCurveTo(l.left + l.width * 0.3, ground - 55, l.left + l.width * 0.55, ground - 18); ctx.quadraticCurveTo(l.left + l.width * 0.8, ground + 10, l.left + l.width, ground - 35);
-        ctx.lineTo(l.left + l.width, l.top + l.height); ctx.lineTo(l.left, l.top + l.height); ctx.fill();
-        ctx.fillStyle = '#7fb544'; ctx.beginPath(); ctx.moveTo(l.left, ground + 25);
-        ctx.quadraticCurveTo(l.left + l.width * 0.5, ground - 22, l.left + l.width, ground + 22); ctx.lineTo(l.left + l.width, l.top + l.height); ctx.lineTo(l.left, l.top + l.height); ctx.fill();
+        const l = layout, s = scene || (scene = buildScene(l)), p = palette(), ground = l.ground;
+        // Cream paper inside a fine gold frame.
+        ctx.fillStyle = '#f8f1dc'; ctx.fillRect(l.left, l.top, l.width, l.height);
+        const inset = Math.min(l.width, l.height) * 0.012;
+        ctx.strokeStyle = '#c9a256'; ctx.lineWidth = inset * 0.5; ctx.strokeRect(l.left + inset, l.top + inset, l.width - inset * 2, l.height - inset * 2);
+        ctx.lineWidth = inset * 0.12; ctx.strokeRect(l.left + inset * 1.8, l.top + inset * 1.8, l.width - inset * 3.6, l.height - inset * 3.6);
+        ctx.save(); ctx.setLineDash([inset * 0.18, inset * 0.5]); ctx.lineCap = 'round'; ctx.strokeStyle = '#6f8f4a'; ctx.lineWidth = inset * 0.2;
+        ctx.strokeRect(l.left + inset * 1.4, l.top + inset * 1.4, l.width - inset * 2.8, l.height - inset * 2.8); ctx.restore();
 
-        if (config.naturalFoliage !== false) { ctx.fillStyle = p.canopyShade; ctx.fill(s.shade); ctx.fillStyle = p.canopy; ctx.fill(s.canopy); }
-
-        // Trunk: concave sides, flared roots, flat light side and bark lines.
+        // Trunk: concave sides and roots spreading over the ground.
         const top = l.trunk.width / 2, base = top * 1.45;
+        ctx.fillStyle = '#5a3a1a1c'; ctx.beginPath(); ctx.ellipse(0, ground + 14, base * 2.1, 20, 0, 0, TAU); ctx.fill();
         const trunk = new Path2D();
-        trunk.moveTo(-top, -4); trunk.bezierCurveTo(-top * 0.82, ground * 0.45, -top * 0.95, ground * 0.8, -base * 1.5, ground + 12);
-        trunk.quadraticCurveTo(-base * 0.8, ground - 6, -base * 0.45, ground + 16); trunk.quadraticCurveTo(0, ground + 2, base * 0.45, ground + 16);
-        trunk.quadraticCurveTo(base * 0.8, ground - 6, base * 1.5, ground + 12); trunk.bezierCurveTo(top * 0.95, ground * 0.8, top * 0.82, ground * 0.45, top, -4);
+        trunk.moveTo(-top, -4); trunk.bezierCurveTo(-top * 0.82, ground * 0.45, -top * 0.95, ground * 0.8, -base * 1.7, ground + 14);
+        trunk.quadraticCurveTo(-base * 0.8, ground - 4, -base * 0.45, ground + 18); trunk.quadraticCurveTo(0, ground + 4, base * 0.45, ground + 18);
+        trunk.quadraticCurveTo(base * 0.8, ground - 4, base * 1.7, ground + 14); trunk.bezierCurveTo(top * 0.95, ground * 0.8, top * 0.82, ground * 0.45, top, -4);
         trunk.quadraticCurveTo(0, -top * 0.35, -top, -4); trunk.closePath();
-        ctx.fillStyle = p.trunk; ctx.fill(trunk); ctx.fill(s.stems);
-        ctx.save(); ctx.clip(trunk); ctx.fillStyle = p.trunkLight; ctx.fillRect(-base * 2, -top, base * 1.25, ground + top * 2);
-        ctx.strokeStyle = p.bark; ctx.lineWidth = 2; ctx.lineCap = 'round';
-        for (let i = -3; i <= 3; i++) { ctx.beginPath(); const x = i * top * 0.24; ctx.moveTo(x, ground * (0.08 + Math.abs(i) * 0.05)); ctx.bezierCurveTo(x * 1.1 + 6, ground * 0.4, x * 0.9 - 6, ground * 0.65, x * 1.3, ground * (0.9 - Math.abs(i) * 0.04)); ctx.stroke(); }
-        ctx.restore();
+        ctx.fillStyle = grain(p.trunk); ctx.fill(trunk); ctx.fill(s.stems);
+        // Rounded light across the trunk, darker at its edges.
+        const shade = ctx.createLinearGradient(-base * 1.7, 0, base * 1.7, 0);
+        shade.addColorStop(0, '#00000040'); shade.addColorStop(0.32, '#ffffff10'); shade.addColorStop(0.5, '#ffffff18'); shade.addColorStop(0.7, '#00000010'); shade.addColorStop(1, '#00000048');
+        ctx.fillStyle = shade; ctx.fill(trunk);
 
         const leaves = () => {
             if (config.naturalFoliage === false) return;
             const shown = s.tiles.filter(t => !view || (t.x < view.x1 + 40 && t.x + TILE > view.x0 - 40 && t.y < view.y1 + 40 && t.y + TILE > view.y0 - 40));
-            ctx.strokeStyle = p.branch; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+            ctx.strokeStyle = p.stalk; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
             for (const t of shown) ctx.stroke(t.stems);
-            for (const [key, color] of [['light', p.leafLight], ['tip', p.leafTip], ['dark', p.leafDark]]) { ctx.fillStyle = color; for (const t of shown) ctx.fill(t[key]); }
+            ctx.fillStyle = p.leaf; for (const t of shown) ctx.fill(t.leaf);
+            ctx.fillStyle = p.leafLight; for (const t of shown) ctx.fill(t.half);
+            ctx.strokeStyle = p.leafEdge; ctx.lineWidth = 0.6; for (const t of shown) ctx.stroke(t.leaf);
+            ctx.strokeStyle = p.leafVein; ctx.lineWidth = 0.8; for (const t of shown) ctx.stroke(t.vein);
         };
-        if (config.leavesFirst !== false) leaves();
-        ctx.fillStyle = p.branch; ctx.fill(s.branches);
-        ctx.lineCap = 'round'; ctx.lineWidth = 1.4; ctx.strokeStyle = p.bark; ctx.stroke(s.twistDark); ctx.strokeStyle = p.trunkLight; ctx.stroke(s.twistLight);
-        if (config.leavesFirst === false) leaves();
+        // Wood over the leaf stalks, leaves over nothing but the paper.
+        ctx.fillStyle = grain(p.branch); ctx.fill(s.branches);
+        leaves();
 
-        // Names sit on top of everything else in the crown.
-        ctx.fillStyle = p.leafLight; ctx.fill(s.nameLight); ctx.fillStyle = p.leafDark; ctx.fill(s.nameDark);
-        ctx.fillStyle = '#00000024'; ctx.save(); ctx.translate(0, 2); ctx.fill(s.gold); ctx.restore();
-        ctx.fillStyle = '#e9b949'; ctx.fill(s.gold); ctx.fillStyle = '#fdf3d6'; ctx.fill(s.petioles);
+        // Names sit on badges on top of everything else in the crown.
+        ctx.fillStyle = '#4a2c1022'; ctx.save(); ctx.translate(0, 1.6); ctx.fill(s.rims); ctx.restore();
+        ctx.fillStyle = '#d2ac5c'; ctx.fill(s.rims); ctx.fillStyle = '#fff7de'; ctx.fill(s.faces);
+        ctx.strokeStyle = '#ecd9a6'; ctx.lineWidth = 0.8; ctx.stroke(s.rings);
         for (const n of l.nodes) {
             if (n.kind === 'medallion') {
                 ctx.beginPath(); ctx.arc(n.x, n.y + 2.5, n.r + 1, 0, TAU); ctx.fillStyle = '#00000026'; ctx.fill();
-                ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, TAU); ctx.fillStyle = '#d39a2c'; ctx.fill();
-                ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 0.86, 0, TAU); ctx.fillStyle = '#f2c65a'; ctx.fill();
-                ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 0.7, 0, TAU); ctx.fillStyle = '#fde6a4'; ctx.fill();
+                const gold = ctx.createRadialGradient(n.x - n.r * 0.3, n.y - n.r * 0.35, n.r * 0.1, n.x, n.y, n.r);
+                gold.addColorStop(0, '#fff1b8'); gold.addColorStop(0.55, '#e3b84f'); gold.addColorStop(1, '#a8771f');
+                ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, TAU); ctx.fillStyle = gold; ctx.fill();
+                ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 0.8, 0, TAU); ctx.fillStyle = '#fbf0cf'; ctx.fill();
+                ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1.2; ctx.stroke();
             } else if (n.kind === 'trunk') {
                 ctx.beginPath(); ctx.ellipse(n.x, n.y + 3, n.rx, n.ry, 0, 0, TAU); ctx.fillStyle = '#00000030'; ctx.fill();
-                ctx.beginPath(); ctx.ellipse(n.x, n.y, n.rx, n.ry, 0, 0, TAU); ctx.fillStyle = '#d4ad5a'; ctx.fill();
-                ctx.beginPath(); ctx.ellipse(n.x, n.y, n.rx - 6, n.ry - 5, 0, 0, TAU); ctx.fillStyle = '#fbf3dc'; ctx.fill();
+                const gold = ctx.createLinearGradient(n.x, n.y - n.ry, n.x, n.y + n.ry);
+                gold.addColorStop(0, '#f6dc8e'); gold.addColorStop(0.5, '#c9973a'); gold.addColorStop(1, '#f1d27c');
+                ctx.beginPath(); ctx.ellipse(n.x, n.y, n.rx, n.ry, 0, 0, TAU); ctx.fillStyle = gold; ctx.fill();
+                ctx.beginPath(); ctx.ellipse(n.x, n.y, n.rx - 6, n.ry - 5, 0, 0, TAU); ctx.fillStyle = '#fdf6e2'; ctx.fill();
+                ctx.strokeStyle = '#d9b867'; ctx.lineWidth = 1; ctx.stroke();
             }
         }
 
-        // Title banner on the grass.
+        // Title plaque below the roots.
         const bw = Math.min(l.width * 0.7, 900), bh = 62, by = ground + 52;
-        ctx.fillStyle = '#00000020'; ctx.beginPath(); ctx.roundRect(-bw / 2, by + 4, bw, bh, 14); ctx.fill();
+        ctx.fillStyle = '#00000018'; ctx.beginPath(); ctx.roundRect(-bw / 2, by + 4, bw, bh, 14); ctx.fill();
         ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.roundRect(-bw / 2, by, bw, bh, 14); ctx.fill();
         ctx.strokeStyle = '#c9a45a'; ctx.lineWidth = 2; ctx.stroke();
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl';
@@ -254,19 +237,16 @@
         if (sel) {
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3.5; ctx.beginPath();
             if (sel.kind === 'trunk') ctx.ellipse(sel.x, sel.y, sel.rx + 4, sel.ry + 4, 0, 0, TAU);
-            else if (sel.leaf) ctx.ellipse(sel.leaf.x, sel.leaf.y, SIZE.nameLeaf.a * sel.leaf.s + 4, SIZE.nameLeaf.b * sel.leaf.s + 4, sel.leaf.a, 0, TAU);
             else ctx.arc(sel.x, sel.y, sel.r + 4, 0, TAU);
             ctx.stroke();
         }
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl';
         const readable = scale * SIZE.leaf >= 5.5;
         for (const n of l.nodes) {
-            const at = n.leaf || n;
-            if (view && (at.x < view.x0 - 80 || at.x > view.x1 + 80 || at.y < view.y0 - 80 || at.y > view.y1 + 80)) continue;
+            if (view && (n.x < view.x0 - 80 || n.x > view.x1 + 80 || n.y < view.y0 - 80 || n.y > view.y1 + 80)) continue;
             if (n.kind === 'trunk') text(n, n.rx * 1.55, 20 * Math.min(1.5, g.big), 9, '#4a3216');
             else if (n.kind === 'medallion') text(n, n.r * 1.4, 15 * Math.min(1.5, g.big), 8, '#5a3b05');
-            else if (readable && n.leaf) text(n, SIZE.nameLeaf.a * n.leaf.s * 1.45, 10, 5, '#ffffff');
-            else if (readable && n.kind === 'parent') text(n, n.r * 1.5, 10, 5, '#5a3b05');
+            else if (readable) text(n, n.r * 1.55, 10.5, 5, '#3a2410');
         }
     }
     function poster(scale = camera.scale) { scenery(null); names(null, scale); }
@@ -380,9 +360,9 @@
       <form id="natural-edit-form"><label class="natural-field" for="natural-rename">الاسم</label><input class="natural-input" id="natural-rename" required maxlength="120"><div class="natural-row"><button class="natural-secondary" type="submit">حفظ الاسم</button></div></form>
       <h3 class="section-title">أفراد العائلة</h3><p class="natural-muted">اختر اسمًا من القائمة أو من الشجرة لعرضه وإضافة أبنائه.</p>
       <div id="treeViewContainer" class="tree-view-container"></div>
-      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">الآباء والأجداد: دوائر عند التفرع</span><span class="leaf">الأبناء: أوراق خضراء</span></div>
+      <div class="natural-legend"><span class="trunk">الأصول على الجذع</span><span class="medal">الفروع الكبرى</span><span class="rose">كل اسم على دائرة: الآباء عند التفرع والأبناء في الأطراف</span><span class="leaf">أوراق الزينة</span></div>
       <h3 class="section-title">شكل الشجرة</h3>
-      <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار خلفية التاج الخضراء</label>
+      <label class="natural-field natural-check"><input type="checkbox" id="natural-foliage"> إظهار الأوراق الخضراء حول الأغصان</label>
       <div class="natural-row"><button id="natural-export">حفظ JSON</button><button id="natural-import" class="natural-secondary">استيراد JSON</button></div>
       <input type="file" id="familyJsonFile" accept=".json,application/json" hidden>
       <div class="natural-row"><button id="natural-image" class="natural-secondary">تنزيل صورة الشجرة كاملة</button></div>
@@ -480,7 +460,7 @@
         if (!wasDragged && layout) {
             const p = position(event), x = (p.x - camera.x) / camera.scale, y = (p.y - camera.y) / camera.scale;
             const n = layout.nodes.find(n => n.kind === 'trunk' ? ((n.x - x) / n.rx) ** 2 + ((n.y - y) / n.ry) ** 2 <= 1
-                : n.leaf ? Math.hypot(n.leaf.x - x, n.leaf.y - y) <= SIZE.nameLeaf.a * n.leaf.s : Math.hypot(n.x - x, n.y - y) <= n.r + 3);
+                : Math.hypot(n.x - x, n.y - y) <= n.r + 3);
             if (n) choose(n.person.id);
         }
         pointers.delete(event.pointerId); gesture = [...pointers.values()];
